@@ -5,6 +5,7 @@ import { ChevronLeft, Search, Info, Heart, Share2, MoreHorizontal, Trash2, Chevr
 import { cn } from "@/lib/utils";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function AddFood() {
     return (
@@ -23,9 +24,11 @@ function AddFoodContent() {
     const searchParams = useSearchParams();
     const [search, setSearch] = useState("");
     const [results, setResults] = useState<any[]>([]);
+    const [history, setHistory] = useState<any[]>([]);
     const [selectedFood, setSelectedFood] = useState<any>(null);
     const [gramos, setGramos] = useState(100);
     const [unidad, setUnidad] = useState<'gramos' | 'porcion'>('gramos');
+    const [loadingHistory, setLoadingHistory] = useState(false);
     const [aiLoading, setAiLoading] = useState(false);
     const [showCreateForm, setShowCreateForm] = useState(false);
     const [newFood, setNewFood] = useState({ nombre: "", kcal: "", proteinas: "", carbohidratos: "", grasas: "", categoria: "Otros" });
@@ -43,14 +46,12 @@ function AddFoodContent() {
         }
 
         const timer = setTimeout(async () => {
-            // Search food items
             const { data: foodItems } = await supabase
                 .from("food_items")
                 .select("*")
                 .ilike("nombre", `%${search}%`)
                 .limit(10);
 
-            // Search recipes
             const { data: recipes } = await supabase
                 .from("recipes")
                 .select(`
@@ -79,7 +80,40 @@ function AddFoodContent() {
         if (recipeId) {
             fetchRecipe(recipeId);
         }
+        fetchHistory();
     }, [searchParams]);
+
+    const fetchHistory = async () => {
+        setLoadingHistory(true);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { data, error } = await supabase
+                .from('food_logs')
+                .select(`
+                    *,
+                    food_items (*)
+                `)
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false })
+                .limit(10);
+
+            if (data) {
+                const uniqueHistory = data.reduce((acc: any[], log: any) => {
+                    if (!log.food_items) return acc;
+                    const exists = acc.find(f => f.nombre === log.food_items.nombre && f.estado === log.food_items.estado);
+                    if (!exists) acc.push({ ...log.food_items, type: 'food' });
+                    return acc;
+                }, []);
+                setHistory(uniqueHistory);
+            }
+        } catch (err) {
+            console.error("History fetch error:", err);
+        } finally {
+            setLoadingHistory(false);
+        }
+    };
 
     const normalizeRecipe = (recipe: any) => {
         const ingredients = recipe.recipe_ingredients || [];
@@ -107,7 +141,7 @@ function AddFoodContent() {
     };
 
     const fetchRecipe = async (id: string) => {
-        const { data, error } = await supabase
+        const { data } = await supabase
             .from('recipes')
             .select(`
                 *,
@@ -137,7 +171,6 @@ function AddFoodContent() {
             if (data.error) throw new Error(data.error);
 
             if (data.items && Array.isArray(data.items)) {
-                // Map AI items to result format
                 const aiResults = data.items.map((item: any, idx: number) => ({
                     ...item,
                     id: `ai-${Date.now()}-${idx}`,
@@ -154,6 +187,29 @@ function AddFoodContent() {
         }
     };
 
+    const handleQuickAdd = async (food: any) => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const gramsToAdd = food.porcion_gramos ? Number(food.porcion_gramos) : 100;
+
+            const { error } = await supabase.from("food_logs").insert({
+                user_id: user.id,
+                food_id: food.id,
+                comida_tipo: (mealType || "Almuerzo") as any,
+                gramos: gramsToAdd,
+                fecha: targetDate
+            });
+
+            if (!error) {
+                router.push("/");
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
     const handleAdd = async () => {
         try {
             let { data: { user } } = await supabase.auth.getUser();
@@ -167,9 +223,7 @@ function AddFoodContent() {
             let targetFoodId = selectedFood.type === 'recipe' ? null : selectedFood.id;
             let targetRecipeId = selectedFood.type === 'recipe' ? selectedFood.id : null;
 
-            // If it's an AI result, persist it to food_items first
             if (selectedFood.isAI) {
-                // Normalize data to ensure types are correct for DB
                 const foodData = {
                     nombre: String(selectedFood.nombre || "Alimento IA"),
                     categoria: String(selectedFood.categoria || "Otros"),
@@ -213,8 +267,7 @@ function AddFoodContent() {
 
             router.push("/");
         } catch (err) {
-            console.error("Unexpected error:", err);
-            alert("Error inesperado. Revisa la consola.");
+            console.error(err);
         }
     };
 
@@ -252,7 +305,6 @@ function AddFoodContent() {
         if (!file) return;
         setScanning(true);
         try {
-            // Convert file to base64
             const reader = new FileReader();
             const base64Promise = new Promise<string>((resolve) => {
                 reader.onload = () => resolve(reader.result as string);
@@ -269,7 +321,6 @@ function AddFoodContent() {
             if (data.error) throw new Error(data.error);
 
             if (data.items && data.items.length > 0) {
-                // If multiple items, we show the first and could later implement a multi-selector
                 const bestMatch = data.items[0];
                 const scannedFood = {
                     nombre: bestMatch.nombre || "Alimento escaneado",
@@ -297,7 +348,6 @@ function AddFoodContent() {
 
     return (
         <main className="min-h-screen text-white p-6 font-sans">
-            {/* Header */}
             <div className="flex items-center justify-between mb-8">
                 <button onClick={() => selectedFood ? setSelectedFood(null) : router.push("/")} className="p-2 -ml-2">
                     <ChevronLeft className="w-6 h-6" />
@@ -317,7 +367,6 @@ function AddFoodContent() {
 
             {!selectedFood ? (
                 <>
-                    {/* Hidden file input for camera */}
                     <input
                         ref={fileInputRef}
                         type="file"
@@ -361,8 +410,15 @@ function AddFoodContent() {
 
                     <div className="space-y-4">
                         <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider pl-1">
-                            {search.length > 0 ? "Resultados" : "Sugeridos"}
+                            {search.length > 0 ? "Resultados de búsqueda" : "Alimentos Recientes"}
                         </p>
+
+                        {search.length === 0 && loadingHistory && (
+                            <div className="py-4 text-center">
+                                <div className="w-5 h-5 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin mx-auto" />
+                            </div>
+                        )}
+
                         {results.length === 0 && search.length >= 2 && !aiLoading && (
                             <div className="py-8 text-center glass-card border-dashed border-zinc-800">
                                 <p className="text-sm text-zinc-500 mb-4">No encontramos este alimento...</p>
@@ -382,53 +438,74 @@ function AddFoodContent() {
                             </div>
                         )}
 
-                        {results.map((food) => (
-                            <button
-                                key={food.id}
-                                onClick={() => {
-                                    if (food.type === 'recipe') {
-                                        setSelectedFood(normalizeRecipe(food));
-                                    } else {
-                                        setSelectedFood({ ...food, type: 'food' });
-                                    }
-                                    setSearch("");
-                                }}
-                                className={cn(
-                                    "w-full glass-card p-4 flex justify-between items-center group active:scale-[0.98] transition-all",
-                                    food.isAI && "border-violet-500/30 bg-violet-500/5"
-                                )}
-                            >
-                                <div className="flex items-center gap-4">
-                                    <span className="text-2xl">
-                                        {food.isAI ? '🌐' : (food.type === 'recipe' ? '👨‍🍳' : '🍽️')}
-                                    </span>
-                                    <div className="text-left">
-                                        <p className="font-bold flex items-center gap-2">
-                                            {food.nombre}
-                                            {food.type === 'recipe' && (
-                                                <span className="px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-400 text-[8px] font-black uppercase tracking-widest border border-violet-500/20">RECETA</span>
-                                            )}
-                                            {food.isAI && (
-                                                <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 text-[8px] font-black uppercase tracking-widest border border-blue-500/20">WEB</span>
-                                            )}
-                                        </p>
-                                        <p className="text-[10px] text-zinc-500 font-bold uppercase">
-                                            {food.type === 'recipe' ? `${food.porciones} porciones` : (food.estado || 'n/a')}
-                                            {food.isAI && ` • por 100g`}
-                                        </p>
+                        <div className="space-y-3">
+                            {(search.length > 0 ? results : history).map((food) => (
+                                <div key={food.id} className="relative group overflow-hidden rounded-2xl">
+                                    <div className="absolute inset-y-0 left-0 w-full bg-emerald-500 flex items-center pl-6 z-0">
+                                        <PlusCircle className="w-6 h-6 text-white" />
                                     </div>
+
+                                    <motion.div
+                                        drag="x"
+                                        dragConstraints={{ left: 0, right: 100 }}
+                                        onDragEnd={(_, info) => {
+                                            if (info.offset.x > 80) {
+                                                handleQuickAdd(food);
+                                            }
+                                        }}
+                                        className="relative z-10"
+                                    >
+                                        <button
+                                            onClick={() => {
+                                                if (food.type === 'recipe') {
+                                                    setSelectedFood(normalizeRecipe(food));
+                                                } else {
+                                                    setSelectedFood({ ...food, type: 'food' });
+                                                }
+                                                setSearch("");
+                                            }}
+                                            className={cn(
+                                                "w-full glass-card p-4 flex justify-between items-center group active:scale-[0.98] transition-all",
+                                                food.isAI && "border-violet-500/30 bg-violet-500/5",
+                                                !food.isAI && search.length === 0 && "border-zinc-500/20 bg-zinc-900/40"
+                                            )}
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <span className="text-2xl">
+                                                    {food.isAI ? '🌐' : (food.type === 'recipe' ? '👨‍🍳' : '🍽️')}
+                                                </span>
+                                                <div className="text-left">
+                                                    <p className="font-bold flex items-center gap-2">
+                                                        {food.nombre}
+                                                        {food.type === 'recipe' && (
+                                                            <span className="px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-400 text-[8px] font-black uppercase tracking-widest border border-violet-500/20">RECETA</span>
+                                                        )}
+                                                        {food.isAI && (
+                                                            <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 text-[8px] font-black uppercase tracking-widest border border-blue-500/20">WEB</span>
+                                                        )}
+                                                        {search.length === 0 && !food.isAI && (
+                                                            <span className="px-1.5 py-0.5 rounded bg-zinc-500/10 text-zinc-400 text-[8px] font-black uppercase tracking-widest border border-zinc-500/20">RECIENTE</span>
+                                                        )}
+                                                    </p>
+                                                    <p className="text-[10px] text-zinc-500 font-bold uppercase">
+                                                        {food.type === 'recipe' ? `${food.porciones} porciones` : (food.estado || 'n/a')}
+                                                        {food.isAI && ` • por 100g`}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className={cn(
+                                                "w-8 h-8 rounded-full flex items-center justify-center text-zinc-500 group-hover:text-white transition-colors",
+                                                food.isAI ? "bg-blue-500/20 text-blue-400" : "bg-zinc-800"
+                                            )}>
+                                                {food.isAI ? '✨' : '+'}
+                                            </div>
+                                        </button>
+                                    </motion.div>
                                 </div>
-                                <div className={cn(
-                                    "w-8 h-8 rounded-full flex items-center justify-center text-zinc-500 group-hover:text-white transition-colors",
-                                    food.isAI ? "bg-blue-500/20 text-blue-400" : "bg-zinc-800"
-                                )}>
-                                    {food.isAI ? '✨' : '+'}
-                                </div>
-                            </button>
-                        ))}
+                            ))}
+                        </div>
                     </div>
 
-                    {/* Create Food Button & Form */}
                     <div className="mt-6">
                         <button
                             onClick={() => setShowCreateForm(!showCreateForm)}
@@ -443,7 +520,6 @@ function AddFoodContent() {
                         {showCreateForm && (
                             <div className="mt-4 glass-card p-6 space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
                                 <h3 className="text-sm font-black uppercase tracking-wider text-violet-300">Nuevo Alimento (por 100g)</h3>
-
                                 <input
                                     type="text"
                                     placeholder="Nombre del alimento"
@@ -451,7 +527,6 @@ function AddFoodContent() {
                                     onChange={(e) => setNewFood({ ...newFood, nombre: e.target.value })}
                                     className="w-full bg-violet-500/5 border border-violet-500/15 rounded-xl py-3 px-4 text-sm focus:outline-none focus:ring-1 focus:ring-violet-500/50 font-medium"
                                 />
-
                                 <div className="grid grid-cols-2 gap-3">
                                     {[
                                         { key: "kcal", label: "Calorías (kcal)", icon: "🔥" },
@@ -473,7 +548,6 @@ function AddFoodContent() {
                                         </div>
                                     ))}
                                 </div>
-
                                 <select
                                     value={newFood.categoria}
                                     onChange={(e) => setNewFood({ ...newFood, categoria: e.target.value })}
@@ -483,7 +557,6 @@ function AddFoodContent() {
                                         <option key={c} value={c}>{c}</option>
                                     ))}
                                 </select>
-
                                 <button
                                     onClick={handleCreateFood}
                                     disabled={creating}
@@ -504,7 +577,6 @@ function AddFoodContent() {
                 </>
             ) : (
                 <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-48">
-                    {/* Main Info */}
                     <div className="flex flex-col items-center text-center">
                         <div className="w-20 h-20 bg-zinc-900/50 rounded-full flex items-center justify-center mb-6 border border-white/5 backdrop-blur-sm relative">
                             <Search className="w-8 h-8 text-zinc-500" />
@@ -519,7 +591,6 @@ function AddFoodContent() {
                         </p>
                     </div>
 
-                    {/* Macros Grid */}
                     <div className="grid grid-cols-4 gap-2">
                         {[
                             { label: 'kcal', val: calculateTotal(unidad === 'gramos' ? gramos : (gramos * (selectedFood.porcion_gramos || 100)), Number(selectedFood.kcal)) },
@@ -534,14 +605,12 @@ function AddFoodContent() {
                         ))}
                     </div>
 
-                    {/* AI Coach Button */}
                     <button className="w-full py-4 glass-card border-violet-500/20 bg-violet-500/5 flex items-center justify-center gap-2 rounded-full relative overflow-hidden group">
                         <div className="absolute inset-0 bg-gradient-to-r from-violet-500/20 via-blue-500/20 to-violet-500/20 opacity-40 blur-xl" />
                         <span className="text-violet-400 text-lg relative z-10">✨</span>
                         <span className="text-sm font-extrabold text-white relative z-10 transition-transform group-active:scale-95">Analizar con Fitia Coach</span>
                     </button>
 
-                    {/* Proportions Bar */}
                     <div className="space-y-4">
                         <div className="h-2 w-full bg-zinc-900/50 rounded-full overflow-hidden flex border border-white/5">
                             <div className="h-full bg-orange-500" style={{ width: '8%' }} />
@@ -555,7 +624,6 @@ function AddFoodContent() {
                         </div>
                     </div>
 
-                    {/* Accordions */}
                     <div className="space-y-3">
                         {['Información Nutricional', 'Micronutrientes'].map((title) => (
                             <div key={title} className="bg-zinc-900/30 border border-white/5 p-5 flex justify-between items-center rounded-2xl">
@@ -570,7 +638,6 @@ function AddFoodContent() {
                         <span className="text-xs font-bold">Reportar un problema</span>
                     </div>
 
-                    {/* Fixed Bottom Section */}
                     <div className="fixed bottom-0 left-0 right-0 bg-[#0a0614]/90 backdrop-blur-2xl border-t border-violet-500/15 p-6 z-50">
                         <div className="flex gap-4 mb-6">
                             <div className="flex-1 space-y-2">
@@ -641,7 +708,7 @@ function AddFoodContent() {
                                 onClick={handleAdd}
                                 className="flex-1 bg-gradient-to-r from-violet-600 to-blue-600 h-16 rounded-full text-white font-extrabold text-lg flex items-center justify-center gap-2 shadow-xl shadow-violet-500/20 hover:scale-[1.01] active:scale-95 transition-all"
                             >
-                                <span>Actualizar</span>
+                                <span>Añadir</span>
                                 <ChevronDown className="w-5 h-5" />
                             </button>
                         </div>
