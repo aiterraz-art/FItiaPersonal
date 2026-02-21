@@ -14,8 +14,8 @@ export function CalorieArc({ current, planned, target }: CalorieArcProps) {
     const plannedPercentage = Math.min((planned / target) * 100, 100);
 
     return (
-        <div className="relative flex flex-col items-center justify-center pt-2 pb-10">
-            <svg className="w-80 h-40" viewBox="0 -10 120 70">
+        <div className="relative flex flex-col items-center justify-center pt-2 pb-6 px-4">
+            <svg className="w-full max-w-[320px] h-auto aspect-2/1" viewBox="0 -8 120 62">
                 <defs>
                     <linearGradient id="arcGradient" x1="0%" y1="0%" x2="100%" y2="0%">
                         <stop offset="0%" stopColor="#d946ef" />
@@ -68,9 +68,9 @@ export function CalorieArc({ current, planned, target }: CalorieArcProps) {
                     }}
                 />
             </svg>
-            <div className="absolute top-[75%] left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center w-full">
+            <div className="absolute top-[68%] left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center w-full">
                 <div className="flex flex-col items-center justify-center">
-                    <div className="flex items-baseline gap-1.5 translate-y-4">
+                    <div className="flex items-baseline gap-1.5 translate-y-1">
                         <span className={cn(
                             "font-black tracking-tighter bg-gradient-to-r from-fuchsia-400 to-blue-400 bg-clip-text text-transparent leading-none",
                             current > 9999 ? "text-4xl" : "text-6xl"
@@ -83,7 +83,7 @@ export function CalorieArc({ current, planned, target }: CalorieArcProps) {
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-3 mt-8 px-5 py-2 bg-white/5 rounded-2xl border border-white/5 backdrop-blur-md">
+                    <div className="flex items-center gap-3 mt-4 px-4 py-2 bg-white/5 rounded-2xl border border-white/5 backdrop-blur-md">
                         <div className="flex flex-col items-center">
                             <span className="text-[8px] text-zinc-500 font-black uppercase tracking-widest opacity-60">Plan</span>
                             <span className="text-xs text-zinc-300 font-black tracking-tight">{new Intl.NumberFormat().format(planned)}</span>
@@ -110,9 +110,9 @@ export function MacroBar({ label, current, target }: MacroBarProps) {
     const percentage = Math.min((current / target) * 100, 100);
 
     const gradientClass =
-        label === "Proteínas" ? "bg-gradient-to-r from-fuchsia-500 to-pink-500" :
-            label === "Carbs" ? "bg-gradient-to-r from-blue-500 to-cyan-400" :
-                "bg-gradient-to-r from-fuchsia-400 to-blue-300";
+        label === "Proteínas" ? "bg-linear-to-r from-fuchsia-500 to-pink-500" :
+            label === "Carbs" ? "bg-linear-to-r from-blue-500 to-cyan-400" :
+                "bg-linear-to-r from-fuchsia-400 to-blue-300";
 
     const dotColor =
         label === "Proteínas" ? "bg-fuchsia-500" :
@@ -120,7 +120,7 @@ export function MacroBar({ label, current, target }: MacroBarProps) {
                 "bg-fuchsia-400";
 
     return (
-        <div className="flex-1 px-3">
+        <div className="flex-1 px-1.5 sm:px-3">
             <div className="flex justify-between items-center mb-2">
                 <p className="text-[10px] text-zinc-400 font-black uppercase tracking-wider">{label}</p>
                 <div className={cn("w-1.5 h-1.5 rounded-full shadow-lg", dotColor)} />
@@ -133,7 +133,7 @@ export function MacroBar({ label, current, target }: MacroBarProps) {
             </div>
             <div className="mt-2 flex items-baseline gap-0.5 overflow-hidden">
                 <span className={cn("font-black tracking-tighter truncate", current > 999 ? "text-[10px]" : "text-xs")}>{Math.round(current)}</span>
-                <span className="text-zinc-500 font-bold text-[9px] opacity-60">/ {target}g</span>
+                <span className="text-zinc-500 font-bold text-[8px] sm:text-[9px] opacity-60">/ {target}g</span>
             </div>
         </div>
     );

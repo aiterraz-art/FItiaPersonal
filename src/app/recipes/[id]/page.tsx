@@ -148,7 +148,7 @@ export default function RecipeDetailPage() {
 
             {/* Cooking Mode Overlay */}
             {cookingMode && (
-                <div className="fixed inset-0 bg-[#050510] z-[100] flex flex-col p-8 animate-in fade-in duration-300">
+                <div className="fixed inset-0 bg-[#050510] z-100 flex flex-col p-8 animate-in fade-in duration-300">
                     <div className="flex justify-between items-center mb-12">
                         <p className="text-[10px] font-black uppercase tracking-[0.3em] text-violet-500">Paso {currentStep + 1} de {recipe.instrucciones.split('\n').filter((s: string) => s.trim()).length}</p>
                         <button onClick={() => setCookingMode(false)} className="p-2 bg-white/5 rounded-full border border-white/10">
@@ -182,7 +182,7 @@ export default function RecipeDetailPage() {
                                     alert("¡Receta terminada! Espero que haya quedado espectacular.");
                                 }
                             }}
-                            className="flex-1 h-20 rounded-full bg-gradient-to-r from-violet-600 to-blue-600 text-white font-black text-xl flex items-center justify-center gap-3 shadow-2xl shadow-violet-500/20 active:scale-95 transition-all"
+                            className="flex-1 h-20 rounded-full bg-linear-to-r from-fuchsia-500/15 via-blue-500/10 to-fuchsia-500/15 text-white font-black text-xl flex items-center justify-center gap-3 shadow-2xl shadow-violet-500/20 active:scale-95 transition-all"
                         >
                             <span>{currentStep === recipe.instrucciones.split('\n').filter((s: string) => s.trim()).length - 1 ? "Terminar" : "Siguiente"}</span>
                             <ChevronRight className="w-6 h-6" />
