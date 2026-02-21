@@ -34,7 +34,7 @@ export default function Login() {
                 });
 
                 if (signUpError) throw signUpError;
-                setSuccess(true);
+                router.push("/");
                 // Si la confirmación de email está desactivada, ir al inicio
                 // De lo contrario, dejar el mensaje de éxito
             } else {

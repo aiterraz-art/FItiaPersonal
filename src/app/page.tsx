@@ -207,6 +207,8 @@ export default function Dashboard() {
       console.error("Update error:", error);
       throw error;
     }
+
+    refetch();
   };
 
   const handleToggleConsumed = async (id: string, currentStatus: boolean) => {

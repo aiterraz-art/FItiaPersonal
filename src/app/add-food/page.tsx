@@ -161,26 +161,29 @@ function AddFoodContent() {
 
             // If it's an AI result, persist it to food_items first
             if (selectedFood.isAI) {
-                const { data: newFood, error: foodError } = await supabase
+                // Normalize data to ensure types are correct for DB
+                const foodData = {
+                    nombre: String(selectedFood.nombre || "Alimento IA"),
+                    categoria: String(selectedFood.categoria || "Otros"),
+                    estado: (['crudo', 'cocido', 'n/a'].includes(selectedFood.estado) ? selectedFood.estado : 'n/a') as any,
+                    kcal: Number(selectedFood.kcal) || 0,
+                    proteinas: Number(selectedFood.proteinas) || 0,
+                    carbohidratos: Number(selectedFood.carbohidratos) || 0,
+                    grasas: Number(selectedFood.grasas) || 0
+                };
+
+                const { data: persistedFood, error: foodError } = await supabase
                     .from("food_items")
-                    .insert({
-                        nombre: selectedFood.nombre,
-                        categoria: selectedFood.categoria,
-                        estado: selectedFood.estado,
-                        kcal: selectedFood.kcal,
-                        proteinas: selectedFood.proteinas,
-                        carbohidratos: selectedFood.carbohidratos,
-                        grasas: selectedFood.grasas
-                    })
+                    .insert(foodData)
                     .select()
                     .single();
 
                 if (foodError) {
                     console.error("Error creating AI food:", foodError);
-                    alert("Error al guardar el nuevo alimento de IA.");
+                    alert(`Error al guardar el nuevo alimento de IA: ${foodError.message}`);
                     return;
                 }
-                targetFoodId = newFood.id;
+                targetFoodId = persistedFood.id;
             }
 
             const { error } = await supabase.from("food_logs").insert({

@@ -1,5 +1,6 @@
 "use client";
 
+import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -63,61 +64,71 @@ export function MealCard({ title, totalKcal, macros, items, date, onDelete, onEd
             </div>
 
             <div className="space-y-4 mb-6">
-                {items.length > 0 ? items.map((item) => (
-                    <div key={item.id} className="flex justify-between items-center group">
-                        <div
-                            className={cn(
-                                "flex gap-3 items-center flex-1 cursor-pointer transition-colors hover:bg-white/5 p-2 -ml-2 rounded-xl",
-                                onEdit ? "cursor-pointer" : "cursor-default"
-                            )}
-                            onClick={() => onEdit?.(item.id)}
-                        >
-                            <div className="w-9 h-9 rounded-xl bg-fuchsia-500/10 border border-fuchsia-500/15 flex items-center justify-center text-base shrink-0">
-                                🍽️
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="text-sm font-bold tracking-tight truncate">{item.nombre}</p>
-                                <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">{item.estado}</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-3 ml-2">
-                            <div className="text-right">
-                                <p className="text-sm font-black">{item.gramos}g</p>
-                                <p className="text-[10px] text-zinc-500 font-bold">{item.kcal} kcal</p>
-                            </div>
-                            <div
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onToggleConsumed?.(item.id, item.consumido);
-                                }}
-                                className={cn(
-                                    "w-7 h-7 rounded-full border flex items-center justify-center shrink-0 transition-all duration-300",
-                                    item.consumido
-                                        ? "bg-fuchsia-500 border-fuchsia-400 shadow-[0_0_10px_rgba(217,70,239,0.5)]"
-                                        : "bg-fuchsia-500/5 border-fuchsia-500/20 hover:border-fuchsia-500/40"
-                                )}
-                            >
-                                <CheckCircle2 className={cn(
-                                    "w-4 h-4 transition-colors",
-                                    item.consumido ? "text-white" : "text-fuchsia-500/30 group-hover:text-fuchsia-500/50"
-                                )} />
-                            </div>
+                <AnimatePresence>
+                    {items.length > 0 ? items.map((item) => (
+                        <div key={item.id} className="relative overflow-hidden rounded-2xl">
+                            {/* Swipe Background (Delete) */}
                             {onDelete && (
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onDelete(item.id);
-                                    }}
-                                    className="p-1.5 rounded-lg text-zinc-600 hover:text-red-400 hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
+                                <div className="absolute inset-0 bg-red-600 flex items-center justify-end px-6">
+                                    <Trash2 className="w-5 h-5 text-white" />
+                                </div>
                             )}
+
+                            <motion.div
+                                drag="x"
+                                dragConstraints={{ left: -80, right: 0 }}
+                                dragElastic={0.1}
+                                onDragEnd={(_, info) => {
+                                    if (info.offset.x < -60) {
+                                        onDelete?.(item.id);
+                                    }
+                                }}
+                                className="relative bg-[#050510] flex justify-between items-center group p-2 pr-0 rounded-2xl border border-transparent active:border-fuchsia-500/20 transition-colors"
+                            >
+                                <div
+                                    className={cn(
+                                        "flex gap-3 items-center flex-1 cursor-pointer transition-colors p-2 rounded-xl",
+                                        onEdit ? "cursor-pointer" : "cursor-default"
+                                    )}
+                                    onClick={() => onEdit?.(item.id)}
+                                >
+                                    <div className="w-9 h-9 rounded-xl bg-fuchsia-500/10 border border-fuchsia-500/15 flex items-center justify-center text-base shrink-0">
+                                        🍽️
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-bold tracking-tight truncate">{item.nombre}</p>
+                                        <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">{item.estado}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3 ml-2">
+                                    <div className="text-right">
+                                        <p className="text-sm font-black">{item.gramos}g</p>
+                                        <p className="text-[10px] text-zinc-500 font-bold">{item.kcal} kcal</p>
+                                    </div>
+                                    <div
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onToggleConsumed?.(item.id, item.consumido);
+                                        }}
+                                        className={cn(
+                                            "w-7 h-7 rounded-full border flex items-center justify-center shrink-0 transition-all duration-300 mr-2",
+                                            item.consumido
+                                                ? "bg-fuchsia-500 border-fuchsia-400 shadow-[0_0_10px_rgba(217,70,239,0.5)]"
+                                                : "bg-fuchsia-500/5 border-fuchsia-500/20 hover:border-fuchsia-500/40"
+                                        )}
+                                    >
+                                        <CheckCircle2 className={cn(
+                                            "w-4 h-4 transition-colors",
+                                            item.consumido ? "text-white" : "text-fuchsia-500/30 group-hover:text-fuchsia-500/50"
+                                        )} />
+                                    </div>
+                                </div>
+                            </motion.div>
                         </div>
-                    </div>
-                )) : (
-                    <p className="text-xs text-zinc-600 font-medium italic py-2">Sin alimentos registrados</p>
-                )}
+                    )) : (
+                        <p className="text-xs text-zinc-600 font-medium italic py-2">Sin alimentos registrados</p>
+                    )}
+                </AnimatePresence>
             </div>
 
             <button
