@@ -16,13 +16,16 @@ export async function POST(req: Request) {
     }
 
     const prompt = `Actúa como un experto en nutrición y buscador de productos de supermercado. 
-El usuario busca un alimento específico: "${query}".
+El usuario busca: "${query}".
 REGLAS CRÍTICAS:
-1. Usa la búsqueda de Google para encontrar la información nutricional REAL del producto (especialmente si es de marcas chilenas como Lider, Soprole, Colun, etc.).
-2. Si es un producto de supermercado (ej: "pan precocido Lider"), busca los datos exactos por cada 100g.
-3. Proporciona la información nutricional POR CADA 100 GRAMOS.
-4. Responde EXCLUSIVAMENTE con un JSON válido, sin bloques de código, sin texto adicional:
-{"nombre":"Nombre exacto del producto","kcal":0,"proteinas":0,"carbohidratos":0,"grasas":0,"categoria":"Categoría","estado":"n/a"}`;
+1. Usa la búsqueda de Google para encontrar versiones REALES y ESPECÍFICAS del producto (especialmente de marcas chilenas como Lider, Soprole, Colun, Jumbo, etc.).
+2. Encuentra hasta 5 opciones diferentes si existen (ej: diferentes sabores, tipos o marcas del mismo producto).
+3. Para cada opción, obtén la información nutricional exacta por cada 100 GRAMOS.
+4. Responde EXCLUSIVAMENTE con un JSON válido en este formato exacto:
+{"items": [
+  {"nombre":"Nombre exacto del producto 1","kcal":0,"proteinas":0,"carbohidratos":0,"grasas":0,"categoria":"Categoría","estado":"n/a"},
+  {"nombre":"Nombre exacto del producto 2","kcal":0,"proteinas":0,"carbohidratos":0,"grasas":0,"categoria":"Categoría","estado":"n/a"}
+]}`;
 
     const result = await model.generateContent(prompt);
     const text = result.response.text();
@@ -32,6 +35,14 @@ REGLAS CRÍTICAS:
     if (!jsonMatch) throw new Error("No JSON found in response");
 
     const data = JSON.parse(jsonMatch[0]);
+
+    if (!data.items || !Array.isArray(data.items)) {
+      // Fallback for single item response if IA ignores array instruction
+      if (data.nombre) {
+        return NextResponse.json({ items: [data] });
+      }
+      throw new Error("Invalid response format from AI");
+    }
 
     return NextResponse.json(data);
   } catch (error: any) {

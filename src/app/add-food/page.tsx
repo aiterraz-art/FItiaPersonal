@@ -135,9 +135,16 @@ function AddFoodContent() {
             const data = await res.json();
             if (data.error) throw new Error(data.error);
 
-            // AI results don't have an ID yet, we'll mark them as temporary
-            const aiFood = { ...data, isAI: true };
-            setSelectedFood(aiFood);
+            if (data.items && Array.isArray(data.items)) {
+                // Map AI items to result format
+                const aiResults = data.items.map((item: any, idx: number) => ({
+                    ...item,
+                    id: `ai-${Date.now()}-${idx}`,
+                    type: 'food',
+                    isAI: true
+                }));
+                setResults(prev => [...aiResults, ...prev]);
+            }
         } catch (err) {
             console.error("AI Search Error:", err);
             alert("No se pudo obtener información de la IA. Verifica tu conexión o API Key.");
@@ -383,24 +390,36 @@ function AddFoodContent() {
                                     }
                                     setSearch("");
                                 }}
-                                className="w-full glass-card p-4 flex justify-between items-center group active:scale-[0.98] transition-all"
+                                className={cn(
+                                    "w-full glass-card p-4 flex justify-between items-center group active:scale-[0.98] transition-all",
+                                    food.isAI && "border-violet-500/30 bg-violet-500/5"
+                                )}
                             >
                                 <div className="flex items-center gap-4">
-                                    <span className="text-2xl">{food.type === 'recipe' ? '👨‍🍳' : '🍽️'}</span>
+                                    <span className="text-2xl">
+                                        {food.isAI ? '🌐' : (food.type === 'recipe' ? '👨‍🍳' : '🍽️')}
+                                    </span>
                                     <div className="text-left">
                                         <p className="font-bold flex items-center gap-2">
                                             {food.nombre}
                                             {food.type === 'recipe' && (
                                                 <span className="px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-400 text-[8px] font-black uppercase tracking-widest border border-violet-500/20">RECETA</span>
                                             )}
+                                            {food.isAI && (
+                                                <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 text-[8px] font-black uppercase tracking-widest border border-blue-500/20">WEB</span>
+                                            )}
                                         </p>
                                         <p className="text-[10px] text-zinc-500 font-bold uppercase">
-                                            {food.type === 'recipe' ? `${food.porciones} porciones` : (food.estado || 'cocido')}
+                                            {food.type === 'recipe' ? `${food.porciones} porciones` : (food.estado || 'n/a')}
+                                            {food.isAI && ` • por 100g`}
                                         </p>
                                     </div>
                                 </div>
-                                <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-500 group-hover:text-white">
-                                    +
+                                <div className={cn(
+                                    "w-8 h-8 rounded-full flex items-center justify-center text-zinc-500 group-hover:text-white transition-colors",
+                                    food.isAI ? "bg-blue-500/20 text-blue-400" : "bg-zinc-800"
+                                )}>
+                                    {food.isAI ? '✨' : '+'}
                                 </div>
                             </button>
                         ))}
