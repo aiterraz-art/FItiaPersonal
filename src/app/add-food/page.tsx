@@ -203,7 +203,8 @@ function AddFoodContent() {
             });
 
             if (!error) {
-                router.push("/");
+                // Remove navigation to main menu to allow adding more foods
+                // router.push("/"); 
             }
         } catch (err) {
             console.error(err);
@@ -265,7 +266,9 @@ function AddFoodContent() {
                 return;
             }
 
-            router.push("/");
+            // router.push("/"); // Stay on page to allow adding more
+            setSelectedFood(null); // Return to search/list
+            setSearch(""); // Clear search for next addition
         } catch (err) {
             console.error(err);
         }
@@ -390,7 +393,7 @@ function AddFoodContent() {
                         <button
                             onClick={() => fileInputRef.current?.click()}
                             disabled={scanning}
-                            className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-600 to-blue-600 flex items-center justify-center shadow-lg shadow-violet-500/20 active:scale-90 transition-all disabled:opacity-50 shrink-0"
+                            className="w-14 h-14 rounded-2xl bg-linear-to-br from-violet-600 to-blue-600 flex items-center justify-center shadow-lg shadow-violet-500/20 active:scale-90 transition-all disabled:opacity-50 shrink-0"
                         >
                             {scanning ? (
                                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -424,7 +427,7 @@ function AddFoodContent() {
                                 <p className="text-sm text-zinc-500 mb-4">No encontramos este alimento...</p>
                                 <button
                                     onClick={handleAISearch}
-                                    className="px-6 py-3 bg-gradient-to-r from-violet-600 to-blue-600 text-white font-black rounded-full text-xs uppercase tracking-widest active:scale-95 transition-all flex items-center gap-2 mx-auto shadow-lg shadow-violet-500/20"
+                                    className="px-6 py-3 bg-linear-to-r from-violet-600 to-blue-600 text-white font-black rounded-full text-xs uppercase tracking-widest active:scale-95 transition-all flex items-center gap-2 mx-auto shadow-lg shadow-violet-500/20"
                                 >
                                     <span>✨ Consultar con IA</span>
                                 </button>
@@ -448,12 +451,15 @@ function AddFoodContent() {
                                     <motion.div
                                         drag="x"
                                         dragConstraints={{ left: 0, right: 100 }}
+                                        dragElastic={0.2}
+                                        dragTransition={{ bounceStiffness: 600, bounceDamping: 20 }}
+                                        whileDrag={{ scale: 1.02 }}
                                         onDragEnd={(_, info) => {
                                             if (info.offset.x > 80) {
                                                 handleQuickAdd(food);
                                             }
                                         }}
-                                        className="relative z-10"
+                                        className="relative z-10 will-change-transform"
                                     >
                                         <button
                                             onClick={() => {
@@ -494,8 +500,8 @@ function AddFoodContent() {
                                                 </div>
                                             </div>
                                             <div className={cn(
-                                                "w-8 h-8 rounded-full flex items-center justify-center text-zinc-500 group-hover:text-white transition-colors",
-                                                food.isAI ? "bg-blue-500/20 text-blue-400" : "bg-zinc-800"
+                                                "w-8 h-8 rounded-full flex items-center justify-center transition-all group-hover:scale-110",
+                                                food.isAI ? "bg-blue-500/20 text-blue-400" : "bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/20"
                                             )}>
                                                 {food.isAI ? '✨' : '+'}
                                             </div>
@@ -509,10 +515,10 @@ function AddFoodContent() {
                     <div className="mt-6">
                         <button
                             onClick={() => setShowCreateForm(!showCreateForm)}
-                            className="w-full py-4 glass-card-subtle flex items-center justify-center gap-3 active:scale-[0.98] transition-all group"
+                            className="w-full py-4 bg-gradient-to-r from-violet-600/10 to-blue-600/10 border border-violet-500/20 rounded-2xl flex items-center justify-center gap-3 active:scale-[0.98] transition-all group hover:border-violet-500/40"
                         >
                             <PlusCircle className="w-5 h-5 text-violet-400 transition-transform group-hover:rotate-90" />
-                            <span className="text-sm font-bold text-zinc-400 group-hover:text-violet-300 transition-colors">
+                            <span className="text-sm font-bold text-violet-100 group-hover:text-white transition-colors">
                                 Crear alimento manualmente
                             </span>
                         </button>
@@ -560,7 +566,7 @@ function AddFoodContent() {
                                 <button
                                     onClick={handleCreateFood}
                                     disabled={creating}
-                                    className="w-full py-3.5 bg-gradient-to-r from-violet-600 to-blue-600 text-white font-bold rounded-xl active:scale-95 transition-all shadow-lg shadow-violet-500/20 disabled:opacity-50 flex items-center justify-center gap-2"
+                                    className="w-full py-3.5 bg-linear-to-r from-violet-600 to-blue-600 text-white font-bold rounded-xl active:scale-95 transition-all shadow-lg shadow-violet-500/20 disabled:opacity-50 flex items-center justify-center gap-2"
                                 >
                                     {creating ? (
                                         <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -706,10 +712,10 @@ function AddFoodContent() {
                             </button>
                             <button
                                 onClick={handleAdd}
-                                className="flex-1 bg-gradient-to-r from-violet-600 to-blue-600 h-16 rounded-full text-white font-extrabold text-lg flex items-center justify-center gap-2 shadow-xl shadow-violet-500/20 hover:scale-[1.01] active:scale-95 transition-all"
+                                className="flex-1 bg-linear-to-r from-emerald-500 to-teal-600 h-16 rounded-full text-white font-extrabold text-lg flex items-center justify-center gap-2 shadow-xl shadow-emerald-500/20 hover:scale-[1.01] active:scale-95 transition-all"
                             >
                                 <span>Añadir</span>
-                                <ChevronDown className="w-5 h-5" />
+                                <ChevronDown className="w-5 h-5 transition-transform group-hover:translate-y-1" />
                             </button>
                         </div>
                     </div>
