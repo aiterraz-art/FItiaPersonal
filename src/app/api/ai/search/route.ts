@@ -19,12 +19,22 @@ export async function POST(req: Request) {
 El usuario busca: "${query}".
 REGLAS CRÍTICAS:
 1. Usa la búsqueda de Google para encontrar versiones REALES y ESPECÍFICAS del producto (especialmente de marcas chilenas como Lider, Soprole, Colun, Jumbo, etc.).
-2. Encuentra hasta 5 opciones diferentes si existen (ej: diferentes sabores, tipos o marcas del mismo producto).
+2. Encuentra hasta 5 opciones diferentes si existen.
 3. Para cada opción, obtén la información nutricional exacta por cada 100 GRAMOS.
-4. Responde EXCLUSIVAMENTE con un JSON válido en este formato exacto:
+4. MUY IMPORTANTE: Identifica si el producto tiene una PORCIÓN estándar (ej: "1 rebajada", "1 unidad", "1 envase", "1 pote"). Obtén el nombre de esa porción y cuántos GRAMOS pesa esa porción única.
+5. Responde EXCLUSIVAMENTE con un JSON válido en este formato exacto:
 {"items": [
-  {"nombre":"Nombre exacto del producto 1","kcal":0,"proteinas":0,"carbohidratos":0,"grasas":0,"categoria":"Categoría","estado":"n/a"},
-  {"nombre":"Nombre exacto del producto 2","kcal":0,"proteinas":0,"carbohidratos":0,"grasas":0,"categoria":"Categoría","estado":"n/a"}
+  {
+    "nombre":"Nombre exacto del producto 1",
+    "kcal":0,
+    "proteinas":0,
+    "carbohidratos":0,
+    "grasas":0,
+    "categoria":"Categoría",
+    "estado":"n/a",
+    "porcion_nombre": "unidad", 
+    "porcion_gramos": 30
+  }
 ]}`;
 
     const result = await model.generateContent(prompt);
@@ -37,7 +47,6 @@ REGLAS CRÍTICAS:
     const data = JSON.parse(jsonMatch[0]);
 
     if (!data.items || !Array.isArray(data.items)) {
-      // Fallback for single item response if IA ignores array instruction
       if (data.nombre) {
         return NextResponse.json({ items: [data] });
       }

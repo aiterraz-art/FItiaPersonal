@@ -25,6 +25,7 @@ function AddFoodContent() {
     const [results, setResults] = useState<any[]>([]);
     const [selectedFood, setSelectedFood] = useState<any>(null);
     const [gramos, setGramos] = useState(100);
+    const [unidad, setUnidad] = useState<'gramos' | 'porcion'>('gramos');
     const [aiLoading, setAiLoading] = useState(false);
     const [showCreateForm, setShowCreateForm] = useState(false);
     const [newFood, setNewFood] = useState({ nombre: "", kcal: "", proteinas: "", carbohidratos: "", grasas: "", categoria: "Otros" });
@@ -176,7 +177,9 @@ function AddFoodContent() {
                     kcal: Number(selectedFood.kcal) || 0,
                     proteinas: Number(selectedFood.proteinas) || 0,
                     carbohidratos: Number(selectedFood.carbohidratos) || 0,
-                    grasas: Number(selectedFood.grasas) || 0
+                    grasas: Number(selectedFood.grasas) || 0,
+                    porcion_nombre: selectedFood.porcion_nombre || null,
+                    porcion_gramos: selectedFood.porcion_gramos || null
                 };
 
                 const { data: persistedFood, error: foodError } = await supabase
@@ -198,7 +201,7 @@ function AddFoodContent() {
                 food_id: targetFoodId,
                 recipe_id: targetRecipeId,
                 comida_tipo: (mealType || "Almuerzo") as any,
-                gramos: gramos,
+                gramos: unidad === 'gramos' ? gramos : (gramos * (selectedFood.porcion_gramos || 100)),
                 fecha: targetDate
             });
 
@@ -519,12 +522,12 @@ function AddFoodContent() {
                     {/* Macros Grid */}
                     <div className="grid grid-cols-4 gap-2">
                         {[
-                            { label: 'kcal', val: calculateTotal(gramos, Number(selectedFood.kcal)) },
-                            { label: 'proteínas', val: `${calculateTotal(gramos, Number(selectedFood.proteinas || 0))} g` },
-                            { label: 'carbs', val: `${calculateTotal(gramos, Number(selectedFood.carbohidratos || 0))} g` },
-                            { label: 'grasas', val: `${calculateTotal(gramos, Number(selectedFood.grasas || 0))} g` },
+                            { label: 'kcal', val: calculateTotal(unidad === 'gramos' ? gramos : (gramos * (selectedFood.porcion_gramos || 100)), Number(selectedFood.kcal)) },
+                            { label: 'proteínas', val: `${calculateTotal(unidad === 'gramos' ? gramos : (gramos * (selectedFood.porcion_gramos || 100)), Number(selectedFood.proteinas || 0))} g` },
+                            { label: 'carbs', val: `${calculateTotal(unidad === 'gramos' ? gramos : (gramos * (selectedFood.porcion_gramos || 100)), Number(selectedFood.carbohidratos || 0))} g` },
+                            { label: 'grasas', val: `${calculateTotal(unidad === 'gramos' ? gramos : (gramos * (selectedFood.porcion_gramos || 100)), Number(selectedFood.grasas || 0))} g` },
                         ].map((stat, i) => (
-                            <div className="bg-violet-500/5 border border-violet-500/10 rounded-2xl py-4 px-1 text-center backdrop-blur-sm">
+                            <div key={i} className="bg-violet-500/5 border border-violet-500/10 rounded-2xl py-4 px-1 text-center backdrop-blur-sm">
                                 <p className="text-lg font-extrabold mb-0.5">{stat.val}</p>
                                 <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-tighter">{stat.label}</p>
                             </div>
@@ -571,7 +574,9 @@ function AddFoodContent() {
                     <div className="fixed bottom-0 left-0 right-0 bg-[#0a0614]/90 backdrop-blur-2xl border-t border-violet-500/15 p-6 z-50">
                         <div className="flex gap-4 mb-6">
                             <div className="flex-1 space-y-2">
-                                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block text-center">Cantidad</label>
+                                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block text-center">
+                                    {unidad === 'gramos' ? 'Cantidad' : 'Porciones'}
+                                </label>
                                 <input
                                     type="number"
                                     value={gramos}
@@ -580,10 +585,28 @@ function AddFoodContent() {
                                 />
                             </div>
                             <div className="flex-1 space-y-2">
-                                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block text-center">Porción</label>
-                                <div className="w-full bg-zinc-900/50 border border-white/10 rounded-2xl py-4 px-4 text-center font-bold text-zinc-400 truncate">
-                                    gramos
-                                </div>
+                                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block text-center">Unidad</label>
+                                <button
+                                    onClick={() => {
+                                        if (selectedFood.porcion_nombre) {
+                                            if (unidad === 'gramos') {
+                                                setUnidad('porcion');
+                                                setGramos(1);
+                                            } else {
+                                                setUnidad('gramos');
+                                                setGramos(Math.round(1 * (selectedFood.porcion_gramos || 100)));
+                                            }
+                                        }
+                                    }}
+                                    className={cn(
+                                        "w-full border rounded-2xl py-4 px-4 text-center font-bold truncate active:scale-95 transition-all capitalize",
+                                        selectedFood.porcion_nombre
+                                            ? "bg-violet-500/10 border-violet-500/20 text-violet-400"
+                                            : "bg-zinc-900/50 border-white/10 text-zinc-500 cursor-not-allowed"
+                                    )}
+                                >
+                                    {unidad === 'gramos' ? 'gramos' : (selectedFood.porcion_nombre || 'unidad')}
+                                </button>
                             </div>
                             <div className="flex-1 space-y-2">
                                 <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block text-center">Tipo de Peso</label>
@@ -602,7 +625,7 @@ function AddFoodContent() {
                                     }}
                                     className="w-full bg-zinc-900/50 border border-white/10 rounded-2xl py-4 px-2 text-center font-extrabold capitalize text-zinc-200"
                                 >
-                                    {selectedFood.estado || 'cocido'}
+                                    {selectedFood.estado || 'n/a'}
                                 </button>
                             </div>
                         </div>
