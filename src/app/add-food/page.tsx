@@ -1,12 +1,24 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { ChevronLeft, Search, Info, Heart, Share2, MoreHorizontal, Trash2, ChevronDown, Flag, PlusCircle, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 export default function AddFood() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-black flex items-center justify-center">
+                <div className="w-8 h-8 border-2 border-fuchsia-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+        }>
+            <AddFoodContent />
+        </Suspense>
+    );
+}
+
+function AddFoodContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [search, setSearch] = useState("");
