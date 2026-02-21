@@ -12,11 +12,17 @@ const manrope = Manrope({
 });
 
 export const metadata = {
-  title: "Fitia - Clon Personal",
-  description: "Seguimiento de calorías y macros con estética premium.",
+  metadataBase: new URL("https://fitiaah.atapp.cl"),
+  title: "Fitia Personal | Elite Performance Tracker",
+  description: "Seguimiento de nutrición, macros y evolución física con inteligencia artificial.",
   manifest: "/manifest.json",
-  themeColor: "#d946ef",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1",
+  themeColor: "#000000",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Fitia Personal",
+  },
 };
 
 export default function RootLayout({
