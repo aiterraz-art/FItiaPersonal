@@ -74,7 +74,21 @@ export function useProfile(userId?: string) {
         }
     };
 
-    return { profile, loading, updateStreak };
+    const updateMealOrder = async (newOrder: string[]) => {
+        if (!userId) return;
+        const { error } = await supabase
+            .from('profiles')
+            .update({ orden_comidas: newOrder })
+            .eq('id', userId);
+
+        if (error) {
+            console.error("Error updating meal order:", error);
+            throw error;
+        }
+        setProfile((prev: any) => ({ ...prev, orden_comidas: newOrder }));
+    };
+
+    return { profile, loading, updateStreak, updateMealOrder };
 }
 
 export function useFoodLogs(userId?: string, date?: string) {
@@ -145,7 +159,21 @@ export function useFoodLogActions() {
         }
     };
 
-    return { toggleConsumed, toggleAllConsumed };
+    const renameMealType = async (userId: string, date: string, oldName: string, newName: string) => {
+        const { error } = await supabase
+            .from('food_logs')
+            .update({ comida_tipo: newName })
+            .eq('user_id', userId)
+            .eq('fecha', date)
+            .eq('comida_tipo', oldName);
+
+        if (error) {
+            console.error("Error renaming meal type:", error);
+            throw error;
+        }
+    };
+
+    return { toggleConsumed, toggleAllConsumed, renameMealType };
 }
 
 export function useWaterLogs(userId?: string, date?: string) {

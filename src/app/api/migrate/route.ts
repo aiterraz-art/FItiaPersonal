@@ -14,6 +14,7 @@ export async function POST() {
                 ALTER TABLE public.food_logs ADD COLUMN IF NOT EXISTS consumido BOOLEAN DEFAULT FALSE;
                 ALTER TABLE public.food_logs ADD COLUMN IF NOT EXISTS original_cantidad NUMERIC;
                 ALTER TABLE public.food_logs ADD COLUMN IF NOT EXISTS original_unidad TEXT;
+                ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS orden_comidas JSONB DEFAULT '["Desayuno", "Snack 1", "Almuerzo", "Merienda", "Snack 2", "Cena"]'::jsonb;
             `
         });
 
@@ -31,6 +32,7 @@ export async function POST() {
                 ALTER TABLE public.food_logs ADD COLUMN IF NOT EXISTS consumido BOOLEAN DEFAULT FALSE;
                 ALTER TABLE public.food_logs ADD COLUMN IF NOT EXISTS original_cantidad NUMERIC;
                 ALTER TABLE public.food_logs ADD COLUMN IF NOT EXISTS original_unidad TEXT;
+                ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS orden_comidas JSONB DEFAULT '["Desayuno", "Snack 1", "Almuerzo", "Merienda", "Snack 2", "Cena"]'::jsonb;
             `
                 })
             });

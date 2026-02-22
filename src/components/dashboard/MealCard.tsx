@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle2, Plus, Trash2 } from "lucide-react";
+import { CheckCircle2, Plus, Trash2, ArrowUp, ArrowDown, Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
@@ -24,15 +24,34 @@ interface MealCardProps {
     onEdit?: (logId: string) => void;
     onToggleConsumed?: (id: string, currentStatus: boolean) => void;
     onToggleAllConsumed?: (status: boolean) => void;
+    onMoveUp?: () => void;
+    onMoveDown?: () => void;
+    onRename?: () => void;
 }
 
-export function MealCard({ title, totalKcal, macros, items, date, onDelete, onEdit, onToggleConsumed, onToggleAllConsumed }: MealCardProps) {
+export function MealCard({
+    title,
+    totalKcal,
+    macros,
+    items,
+    date,
+    onDelete,
+    onEdit,
+    onToggleConsumed,
+    onToggleAllConsumed,
+    onMoveUp,
+    onMoveDown,
+    onRename
+}: MealCardProps) {
     const router = useRouter();
 
-    const mealEmoji = title === "Desayuno" ? "🥣" : title === "Almuerzo" ? "🍗" : title === "Cena" ? "🥗" : "🍎";
+    const mealEmoji = title === "Desayuno" ? "🥣" :
+        title === "Almuerzo" ? "🍗" :
+            title === "Cena" ? "🥗" :
+                title.toLowerCase().includes("snack") || title.toLowerCase().includes("merienda") ? "🍎" : "🍽️";
 
     return (
-        <div className="glass-card-subtle p-6 mb-5">
+        <div className="glass-card-subtle p-6 mb-5 group/card transition-all">
             <div className="flex justify-between items-start mb-5">
                 <div className="flex items-center gap-3">
                     <div className="text-xl">{mealEmoji}</div>
@@ -45,21 +64,40 @@ export function MealCard({ title, totalKcal, macros, items, date, onDelete, onEd
                         </div>
                     </div>
                 </div>
-                <div className="text-right">
-                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter">
-                        {macros.p}P · {macros.c}C · {macros.g}G
-                    </p>
-                    {items.length > 0 && onToggleAllConsumed && (
-                        <button
-                            onClick={() => {
-                                const anyUnconsumed = items.some(i => !i.consumido);
-                                onToggleAllConsumed(anyUnconsumed);
-                            }}
-                            className="mt-2 text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded bg-fuchsia-500/10 border border-fuchsia-500/20 text-fuchsia-400 hover:bg-fuchsia-500/20 transition-all active:scale-95"
-                        >
-                            {items.every(i => i.consumido) ? "Desmarcar todo" : "Marcar todo"}
-                        </button>
-                    )}
+                <div className="flex flex-col items-end gap-2">
+                    <div className="flex items-center gap-1.5 opacity-0 group-hover/card:opacity-100 transition-opacity">
+                        {onMoveUp && (
+                            <button onClick={onMoveUp} className="p-1.5 rounded-lg bg-zinc-800/50 hover:bg-zinc-700/50 text-zinc-400 hover:text-white transition-colors">
+                                <ArrowUp className="w-3.5 h-3.5" />
+                            </button>
+                        )}
+                        {onMoveDown && (
+                            <button onClick={onMoveDown} className="p-1.5 rounded-lg bg-zinc-800/50 hover:bg-zinc-700/50 text-zinc-400 hover:text-white transition-colors">
+                                <ArrowDown className="w-3.5 h-3.5" />
+                            </button>
+                        )}
+                        {onRename && (
+                            <button onClick={onRename} className="p-1.5 rounded-lg bg-zinc-800/50 hover:bg-zinc-700/50 text-zinc-400 hover:text-white transition-colors">
+                                <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                        )}
+                    </div>
+                    <div className="text-right">
+                        <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter">
+                            {macros.p}P · {macros.c}C · {macros.g}G
+                        </p>
+                        {items.length > 0 && onToggleAllConsumed && (
+                            <button
+                                onClick={() => {
+                                    const anyUnconsumed = items.some(i => !i.consumido);
+                                    onToggleAllConsumed(anyUnconsumed);
+                                }}
+                                className="mt-2 text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded bg-fuchsia-500/10 border border-fuchsia-500/20 text-fuchsia-400 hover:bg-fuchsia-500/20 transition-all active:scale-95"
+                            >
+                                {items.every(i => i.consumido) ? "Desmarcar todo" : "Marcar todo"}
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
 
