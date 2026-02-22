@@ -49,7 +49,7 @@ export default function Dashboard() {
     setSelectedDate(newDate);
   };
 
-  const { profile, updateStreak, updateMealOrder } = useProfile(userId || undefined);
+  const { profile, updateStreak, updateMealOrder, refetchProfile } = useProfile(userId || undefined);
   const { logs, refetch } = useFoodLogs(userId || undefined, selectedDate);
   const { toggleConsumed, toggleAllConsumed, renameMealType, deleteMealLogs } = useFoodLogActions();
   const { glasses, addGlass, removeGlass } = useWaterLogs(userId || undefined, selectedDate);
@@ -350,7 +350,7 @@ export default function Dashboard() {
       [nextOrder[index], nextOrder[targetIndex]] = [nextOrder[targetIndex], nextOrder[index]];
 
       await updateMealOrder(nextOrder);
-      // Wait for profile update to reflect in hook, or manually refetch
+      await refetchProfile();
       refetch();
     }
   };
@@ -370,6 +370,7 @@ export default function Dashboard() {
         const nextOrder = currentOrder.filter((m: string) => m !== meal);
         await updateMealOrder(nextOrder);
 
+        await refetchProfile();
         refetch();
       }
     } catch (err) {

@@ -66,10 +66,15 @@ export function MealCard({
                         </div>
                     </div>
                 </div>
-                <div className="flex flex-col items-end gap-2">
+                <div
+                    className="flex flex-col items-end gap-2"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                >
                     <div className="flex items-center gap-1">
                         {onMoveUp && (
                             <button
+                                type="button"
                                 onClick={(e) => { e.stopPropagation(); onMoveUp(); }}
                                 className="p-2.5 rounded-xl bg-zinc-800/40 border border-white/5 text-zinc-400 active:bg-zinc-700 active:text-white transition-all active:scale-95"
                             >
@@ -78,6 +83,7 @@ export function MealCard({
                         )}
                         {onMoveDown && (
                             <button
+                                type="button"
                                 onClick={(e) => { e.stopPropagation(); onMoveDown(); }}
                                 className="p-2.5 rounded-xl bg-zinc-800/40 border border-white/5 text-zinc-400 active:bg-zinc-700 active:text-white transition-all active:scale-95"
                             >
@@ -86,6 +92,7 @@ export function MealCard({
                         )}
                         {onRename && (
                             <button
+                                type="button"
                                 onClick={(e) => { e.stopPropagation(); onRename(); }}
                                 className="p-2.5 rounded-xl bg-zinc-800/40 border border-white/5 text-zinc-400 active:bg-zinc-700 active:text-white transition-all active:scale-95"
                             >
@@ -94,6 +101,7 @@ export function MealCard({
                         )}
                         {onDeleteMeal && (
                             <button
+                                type="button"
                                 onClick={(e) => { e.stopPropagation(); onDeleteMeal(); }}
                                 className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 active:bg-red-500 active:text-white transition-all active:scale-95"
                             >

@@ -74,6 +74,23 @@ export function useProfile(userId?: string) {
         }
     };
 
+    const fetchProfile = async () => {
+        if (!userId) return;
+        setLoading(true);
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .single();
+
+        if (error) {
+            console.error("Error fetching profile:", error);
+        } else {
+            setProfile(data);
+        }
+        setLoading(false);
+    };
+
     const updateMealOrder = async (newOrder: string[]) => {
         if (!userId) return;
         const { error } = await supabase
@@ -88,7 +105,7 @@ export function useProfile(userId?: string) {
         setProfile((prev: any) => ({ ...prev, orden_comidas: newOrder }));
     };
 
-    return { profile, loading, updateStreak, updateMealOrder };
+    return { profile, loading, updateStreak, updateMealOrder, refetchProfile: fetchProfile };
 }
 
 export function useFoodLogs(userId?: string, date?: string) {
