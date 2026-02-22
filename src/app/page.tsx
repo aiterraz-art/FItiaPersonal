@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Copy, Check, Plus } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, Reorder } from "framer-motion";
 import { CalorieArc, MacroBar } from "@/components/dashboard/ProgressCards";
 import { MealCard } from "@/components/dashboard/MealCard";
 import { WaterTracker } from "@/components/dashboard/WaterTracker";
@@ -53,6 +53,34 @@ export default function Dashboard() {
   const { logs, refetch, setLogs } = useFoodLogs(userId || undefined, selectedDate);
   const { toggleConsumed, toggleAllConsumed, renameMealType, deleteMealLogs } = useFoodLogActions();
   const { glasses, addGlass, removeGlass } = useWaterLogs(userId || undefined, selectedDate);
+
+  const [orderedMealNames, setOrderedMealNames] = useState<string[]>([]);
+
+  // Initialize orderedMealNames based on profile and logs
+  useEffect(() => {
+    if (profile && logs) {
+      const defaultOrder = ["Desayuno", "Snack 1", "Almuerzo", "Merienda", "Snack 2", "Cena"];
+      const userOrder = profile.orden_comidas || defaultOrder;
+      const mealsFromLogs = Array.from(new Set(logs.map(l => l.comida_tipo)));
+      const allPotential = Array.from(new Set([...userOrder, ...mealsFromLogs]));
+
+      const sorted = allPotential.sort((a, b) => {
+        const indexA = userOrder.indexOf(a);
+        const indexB = userOrder.indexOf(b);
+        if (indexA === -1 && indexB === -1) return 0;
+        if (indexA === -1) return 1;
+        if (indexB === -1) return -1;
+        return indexA - indexB;
+      });
+
+      const visible = sorted.filter(m => userOrder.includes(m) || logs.some(l => l.comida_tipo === m));
+
+      // Only set if different to avoid unnecessary re-renders
+      if (JSON.stringify(visible) !== JSON.stringify(orderedMealNames)) {
+        setOrderedMealNames(visible);
+      }
+    }
+  }, [profile, logs, orderedMealNames]);
 
   useEffect(() => {
     async function initAuth() {
@@ -339,35 +367,23 @@ export default function Dashboard() {
   };
 
   const handleMoveMeal = async (meal: string, direction: 'up' | 'down') => {
-    if (!profile) return;
-    const defaultOrder = ["Desayuno", "Snack 1", "Almuerzo", "Merienda", "Snack 2", "Cena"];
-    const userOrder = profile.orden_comidas || defaultOrder;
-
-    // Derived current list to match UI
-    const mealsFromLogs = Array.from(new Set(logs.map(l => l.comida_tipo)));
-    const allMeals = Array.from(new Set([...userOrder, ...mealsFromLogs]));
-
-    const currentSorted = [...allMeals].sort((a, b) => {
-      const indexA = userOrder.indexOf(a);
-      const indexB = userOrder.indexOf(b);
-      if (indexA === -1 && indexB === -1) return 0;
-      if (indexA === -1) return 1;
-      if (indexB === -1) return -1;
-      return indexA - indexB;
-    });
-
-    const index = currentSorted.indexOf(meal);
+    const list = [...orderedMealNames];
+    const index = list.indexOf(meal);
     if (index === -1) return;
 
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    if (targetIndex >= 0 && targetIndex < currentSorted.length) {
-      const nextOrder = [...currentSorted];
-      [nextOrder[index], nextOrder[targetIndex]] = [nextOrder[targetIndex], nextOrder[index]];
-
-      await updateMealOrder(nextOrder);
+    if (targetIndex >= 0 && targetIndex < list.length) {
+      [list[index], list[targetIndex]] = [list[targetIndex], list[index]];
+      setOrderedMealNames(list);
+      await updateMealOrder(list);
       await refetchProfile();
       refetch();
     }
+  };
+
+  const handleReorderMeals = async (newOrder: string[]) => {
+    setOrderedMealNames(newOrder);
+    await updateMealOrder(newOrder);
   };
 
   const handleRemoveMeal = async (meal: string) => {
@@ -611,30 +627,13 @@ export default function Dashboard() {
 
             {/* Meals */}
             <section className="px-6 py-2">
-              {(() => {
-                const defaultOrder = ["Desayuno", "Snack 1", "Almuerzo", "Merienda", "Snack 2", "Cena"];
-                const userOrder = profile?.orden_comidas || defaultOrder;
-
-                // All meals present in logs or in the defined order
-                const mealsFromLogs = Array.from(new Set(logs.map(l => l.comida_tipo)));
-                const allPotentialMeals = Array.from(new Set([...userOrder, ...mealsFromLogs]));
-
-                // Sort based on userOrder
-                const sortedMeals = allPotentialMeals.sort((a, b) => {
-                  const indexA = userOrder.indexOf(a);
-                  const indexB = userOrder.indexOf(b);
-                  if (indexA === -1 && indexB === -1) return 0;
-                  if (indexA === -1) return 1;
-                  if (indexB === -1) return -1;
-                  return indexA - indexB;
-                });
-
-                const visibleMeals = sortedMeals.filter(meal => {
-                  const mealLogsForSummary = logs.filter(l => l.comida_tipo === meal);
-                  return userOrder.includes(meal) || mealLogsForSummary.length > 0;
-                });
-
-                return visibleMeals.map((meal, index) => {
+              <Reorder.Group
+                axis="y"
+                values={orderedMealNames}
+                onReorder={handleReorderMeals}
+                className="space-y-0"
+              >
+                {orderedMealNames.map((meal, index) => {
                   const mealLogsForSummary = logs.filter(l => l.comida_tipo === meal);
                   const mealMacros = mealLogsForSummary.reduce((acc, log) => {
                     const m = calculateLogMacros(log);
@@ -646,32 +645,37 @@ export default function Dashboard() {
                   }, { p: 0, c: 0, g: 0 });
 
                   return (
-                    <MealCard
+                    <Reorder.Item
                       key={meal}
-                      title={meal}
-                      date={selectedDate}
-                      totalKcal={mealLogsForSummary.reduce((acc, log) => acc + Math.round(calculateLogMacros(log).kcal), 0)}
-                      macros={mealMacros}
-                      items={mealLogsForSummary.map(l => ({
-                        id: l.id,
-                        nombre: l.food_items?.nombre || l.recipes?.nombre || "Alimento",
-                        gramos: l.gramos,
-                        kcal: Math.round(calculateLogMacros(l).kcal),
-                        estado: l.estado || "Crudo",
-                        consumido: l.consumido
-                      }))}
-                      onDelete={handleDeleteLog}
-                      onEdit={handleEditLog}
-                      onToggleConsumed={handleToggleConsumed}
-                      onToggleAllConsumed={(status) => handleToggleAllConsumed(meal, status)}
-                      onMoveUp={index > 0 ? () => handleMoveMeal(meal, 'up') : undefined}
-                      onMoveDown={index < visibleMeals.length - 1 ? () => handleMoveMeal(meal, 'down') : undefined}
-                      onRename={() => handleRenameMeal(meal)}
-                      onDeleteMeal={() => handleRemoveMeal(meal)}
-                    />
+                      value={meal}
+                      className="list-none"
+                    >
+                      <MealCard
+                        title={meal}
+                        date={selectedDate}
+                        totalKcal={mealLogsForSummary.reduce((acc, log) => acc + Math.round(calculateLogMacros(log).kcal), 0)}
+                        macros={mealMacros}
+                        items={mealLogsForSummary.map(l => ({
+                          id: l.id,
+                          nombre: l.food_items?.nombre || l.recipes?.nombre || "Alimento",
+                          gramos: l.gramos,
+                          kcal: Math.round(calculateLogMacros(l).kcal),
+                          estado: l.estado || "Crudo",
+                          consumido: l.consumido
+                        }))}
+                        onDelete={handleDeleteLog}
+                        onEdit={handleEditLog}
+                        onToggleConsumed={handleToggleConsumed}
+                        onToggleAllConsumed={(status) => handleToggleAllConsumed(meal, status)}
+                        onMoveUp={index > 0 ? () => handleMoveMeal(meal, 'up') : undefined}
+                        onMoveDown={index < orderedMealNames.length - 1 ? () => handleMoveMeal(meal, 'down') : undefined}
+                        onRename={() => handleRenameMeal(meal)}
+                        onDeleteMeal={() => handleRemoveMeal(meal)}
+                      />
+                    </Reorder.Item>
                   );
-                });
-              })()}
+                })}
+              </Reorder.Group>
 
               {/* Add Custom Meal Button */}
               <button

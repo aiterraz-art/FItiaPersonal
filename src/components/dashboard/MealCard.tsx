@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle2, Plus, Trash2, ArrowUp, ArrowDown, Pencil } from "lucide-react";
+import { CheckCircle2, Plus, Trash2, ArrowUp, ArrowDown, Pencil, GripVertical } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
@@ -55,13 +55,16 @@ export function MealCard({
     return (
         <div className="glass-card-subtle p-6 mb-5 group/card transition-all">
             <div className="flex justify-between items-start mb-5">
-                <div className="flex items-center gap-3">
-                    <div className="text-xl">{mealEmoji}</div>
-                    <div>
-                        <h3 className="text-lg font-black tracking-tight">{title}</h3>
-                        <div className="flex items-center gap-2 mt-0.5">
-                            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Registrado</p>
-                            <div className="w-1 h-1 rounded-full bg-fuchsia-500/50" />
+                <div className="flex items-center gap-4 flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <GripVertical className="w-5 h-5 text-zinc-600 shrink-0 cursor-grab active:cursor-grabbing" />
+                        <div className="w-12 h-12 rounded-2xl bg-linear-to-br from-fuchsia-500/20 to-blue-500/20 border border-fuchsia-500/20 flex items-center justify-center text-2xl shadow-inner shrink-0">
+                            {mealEmoji}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <h3 className="text-lg font-black tracking-tight text-white flex items-center gap-2 truncate">
+                                {title}
+                            </h3>
                             <p className="text-[10px] bg-gradient-to-r from-fuchsia-400 to-blue-400 bg-clip-text text-transparent font-bold uppercase tracking-widest">{totalKcal} kcal</p>
                         </div>
                     </div>
