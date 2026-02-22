@@ -278,18 +278,18 @@ function DayContent({
   };
 
   const handleToggleConsumed = async (id: string, currentStatus: boolean) => {
-    setLogs(prev => prev.map(l => l.id === id ? { ...l, consumido: !currentStatus } : l));
+    setLogs((prev: any[]) => prev.map(l => l.id === id ? { ...l, consumido: !currentStatus } : l));
     try {
       await toggleConsumed(id, currentStatus);
     } catch (e) {
-      setLogs(prev => prev.map(l => l.id === id ? { ...l, consumido: currentStatus } : l));
+      setLogs((prev: any[]) => prev.map(l => l.id === id ? { ...l, consumido: currentStatus } : l));
       alert("Error al actualizar el estado.");
     }
   };
 
   const handleToggleAllConsumed = async (mealType: string, status: boolean) => {
     if (!userId) return;
-    setLogs(prev => prev.map(l => l.comida_tipo === mealType ? { ...l, consumido: status } : l));
+    setLogs((prev: any[]) => prev.map(l => l.comida_tipo === mealType ? { ...l, consumido: status } : l));
     try {
       await toggleAllConsumed(userId, date, mealType, status);
     } catch (e) {

@@ -23,6 +23,7 @@ export default function NewRecipePage() {
     const [porciones, setPorciones] = useState(1);
     const [instrucciones, setInstrucciones] = useState("");
     const [ingredients, setIngredients] = useState<any[]>([]);
+    const [userId, setUserId] = useState<string | null>(null);
 
     const [search, setSearch] = useState("");
     const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -50,6 +51,12 @@ export default function NewRecipePage() {
     };
 
     useEffect(() => {
+        async function getAuth() {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) setUserId(user.id);
+        }
+        getAuth();
+
         const delayDebounce = setTimeout(() => {
             if (search.trim().length > 2) {
                 performSearch();
@@ -91,10 +98,10 @@ export default function NewRecipePage() {
     const handleSave = async () => {
         if (!nombre.trim()) { alert("Poné un nombre a la receta"); return; }
         if (ingredients.length === 0) { alert("Agregá al menos un ingrediente"); return; }
+        if (!userId) { alert("Debes estar conectado para crear recetas"); return; }
 
         setSaving(true);
         try {
-            const userId = "demo-user"; // Using demo user
 
             // 1. Create recipe
             const { data: recipe, error: recipeError } = await supabase

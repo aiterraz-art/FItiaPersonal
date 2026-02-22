@@ -8,7 +8,7 @@ const supabase = createClient(
 );
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "models/gemini-2.0-flash" });
+const model = genAI.getGenerativeModel({ model: "models/gemini-3-flash-preview" });
 
 const categories = [
     { name: "Súper Mercados (Lider/Jumbo/Tottus)", focus: "Productos marca Great Value, Cuisine & Co, Tottus, Selección. Abarrotes, enlatados, congelados, snacks." },

@@ -169,9 +169,17 @@ export function useFoodLogs(userId?: string, date?: string) {
     }, [fetchLogs]);
 
     return {
-        logs, loading, refetch: fetchLogs, setLogs: (newLogs: any[]) => {
-            if (date) globalCache.foodLogs[cacheKey] = newLogs;
-            setLogs(newLogs);
+        logs, loading, refetch: fetchLogs, setLogs: (newLogsOrFn: any) => {
+            if (typeof newLogsOrFn === 'function') {
+                setLogs(prev => {
+                    const next = newLogsOrFn(prev);
+                    if (date) globalCache.foodLogs[cacheKey] = next;
+                    return next;
+                });
+            } else {
+                if (date) globalCache.foodLogs[cacheKey] = newLogsOrFn;
+                setLogs(newLogsOrFn);
+            }
         }
     };
 }

@@ -11,10 +11,38 @@ export async function POST() {
         // Add consumido column to food_logs
         const { data, error } = await supabase.rpc("exec_sql", {
             query: `
+                -- Food Logs & Profiles
                 ALTER TABLE public.food_logs ADD COLUMN IF NOT EXISTS consumido BOOLEAN DEFAULT FALSE;
                 ALTER TABLE public.food_logs ADD COLUMN IF NOT EXISTS original_cantidad NUMERIC;
                 ALTER TABLE public.food_logs ADD COLUMN IF NOT EXISTS original_unidad TEXT;
                 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS orden_comidas JSONB DEFAULT '["Desayuno", "Snack 1", "Almuerzo", "Merienda", "Snack 2", "Cena"]'::jsonb;
+                
+                -- Weight Logs
+                CREATE TABLE IF NOT EXISTS public.weight_logs (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+                    peso_kg NUMERIC NOT NULL,
+                    fecha DATE NOT NULL,
+                    created_at TIMESTAMPTZ DEFAULT now()
+                );
+
+                -- Recipes & Ingredients
+                CREATE TABLE IF NOT EXISTS public.recipes (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+                    nombre TEXT NOT NULL,
+                    porciones INTEGER DEFAULT 1,
+                    instrucciones TEXT,
+                    created_at TIMESTAMPTZ DEFAULT now()
+                );
+
+                CREATE TABLE IF NOT EXISTS public.recipe_ingredients (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    recipe_id UUID REFERENCES public.recipes(id) ON DELETE CASCADE,
+                    food_id UUID REFERENCES public.food_items(id) ON DELETE CASCADE,
+                    gramos NUMERIC NOT NULL,
+                    created_at TIMESTAMPTZ DEFAULT now()
+                );
             `
         });
 
@@ -33,6 +61,31 @@ export async function POST() {
                 ALTER TABLE public.food_logs ADD COLUMN IF NOT EXISTS original_cantidad NUMERIC;
                 ALTER TABLE public.food_logs ADD COLUMN IF NOT EXISTS original_unidad TEXT;
                 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS orden_comidas JSONB DEFAULT '["Desayuno", "Snack 1", "Almuerzo", "Merienda", "Snack 2", "Cena"]'::jsonb;
+                
+                CREATE TABLE IF NOT EXISTS public.weight_logs (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+                    peso_kg NUMERIC NOT NULL,
+                    fecha DATE NOT NULL,
+                    created_at TIMESTAMPTZ DEFAULT now()
+                );
+
+                CREATE TABLE IF NOT EXISTS public.recipes (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+                    nombre TEXT NOT NULL,
+                    porciones INTEGER DEFAULT 1,
+                    instrucciones TEXT,
+                    created_at TIMESTAMPTZ DEFAULT now()
+                );
+
+                CREATE TABLE IF NOT EXISTS public.recipe_ingredients (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    recipe_id UUID REFERENCES public.recipes(id) ON DELETE CASCADE,
+                    food_id UUID REFERENCES public.food_items(id) ON DELETE CASCADE,
+                    gramos NUMERIC NOT NULL,
+                    created_at TIMESTAMPTZ DEFAULT now()
+                );
             `
                 })
             });
