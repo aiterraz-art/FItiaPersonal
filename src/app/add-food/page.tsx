@@ -437,7 +437,7 @@ function AddFoodContent() {
                         {aiLoading && (
                             <div className="py-12 text-center">
                                 <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                                <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest animate-pulse">Consultando a Fitia AI...</p>
+                                <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest animate-pulse">Consultando a Elite Nutrition AI...</p>
                             </div>
                         )}
 
@@ -501,7 +501,7 @@ function AddFoodContent() {
                                             </div>
                                             <div className={cn(
                                                 "w-8 h-8 rounded-full flex items-center justify-center transition-all group-hover:scale-110",
-                                                food.isAI ? "bg-blue-500/20 text-blue-400" : "bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/20"
+                                                food.isAI ? "bg-blue-500/20 text-blue-400" : "bg-linear-to-br from-fuchsia-500 to-blue-500 text-white shadow-lg shadow-fuchsia-500/20"
                                             )}>
                                                 {food.isAI ? '✨' : '+'}
                                             </div>
@@ -612,9 +612,9 @@ function AddFoodContent() {
                     </div>
 
                     <button className="w-full py-4 glass-card border-violet-500/20 bg-violet-500/5 flex items-center justify-center gap-2 rounded-full relative overflow-hidden group">
-                        <div className="absolute inset-0 bg-gradient-to-r from-violet-500/20 via-blue-500/20 to-violet-500/20 opacity-40 blur-xl" />
+                        <div className="absolute inset-0 bg-linear-to-r from-violet-500/20 via-blue-500/20 to-violet-500/20 opacity-40 blur-xl" />
                         <span className="text-violet-400 text-lg relative z-10">✨</span>
-                        <span className="text-sm font-extrabold text-white relative z-10 transition-transform group-active:scale-95">Analizar con Fitia Coach</span>
+                        <span className="text-sm font-extrabold text-white relative z-10 transition-transform group-active:scale-95">Analizar con Elite Coach</span>
                     </button>
 
                     <div className="space-y-4">
@@ -712,7 +712,7 @@ function AddFoodContent() {
                             </button>
                             <button
                                 onClick={handleAdd}
-                                className="flex-1 bg-linear-to-r from-emerald-500 to-teal-600 h-16 rounded-full text-white font-extrabold text-lg flex items-center justify-center gap-2 shadow-xl shadow-emerald-500/20 hover:scale-[1.01] active:scale-95 transition-all"
+                                className="flex-1 bg-linear-to-r from-fuchsia-500 to-blue-500 h-16 rounded-full text-white font-extrabold text-lg flex items-center justify-center gap-2 shadow-xl shadow-fuchsia-500/20 hover:scale-[1.01] active:scale-95 transition-all"
                             >
                                 <span>Añadir</span>
                                 <ChevronDown className="w-5 h-5 transition-transform group-hover:translate-y-1" />

@@ -21,7 +21,7 @@ export const viewport = {
 
 export const metadata = {
   metadataBase: new URL("https://fitiaah.atapp.cl"),
-  title: "Fitia Personal | Elite Performance Tracker",
+  title: "Elite Nutrition | Elite Performance Tracker",
   description: "Seguimiento de nutrición, macros e inteligencia artificial.",
   manifest: "/manifest.json",
   icons: {
@@ -31,7 +31,7 @@ export const metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Fitia Personal",
+    title: "Elite Nutrition",
   },
 };
 

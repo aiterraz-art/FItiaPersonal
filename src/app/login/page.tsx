@@ -61,7 +61,7 @@ export default function Login() {
                 </div>
                 <h1 className="text-4xl font-extrabold mb-2 tracking-tight">
                     {isSignUp ? "Crear Cuenta" : "Bienvenido a "}
-                    {!isSignUp && <span className="text-gold">Fitia</span>}
+                    {!isSignUp && <span className="text-gold">Elite Nutrition</span>}
                 </h1>
                 <p className="text-zinc-500 font-bold">
                     {isSignUp ? "Únete a la legión del fitness hoy." : "Inicia sesión para continuar tu progreso."}
