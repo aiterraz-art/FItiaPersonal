@@ -407,8 +407,8 @@ export default function Dashboard() {
           >
             {copied ? (
               <>
-                <Check className="w-5 h-5 text-green-400" />
-                <span className="text-sm font-bold text-green-400">¡Dieta copiada!</span>
+                <Check className="w-5 h-5 text-fuchsia-400" />
+                <span className="text-sm font-bold text-fuchsia-400">¡Dieta copiada!</span>
               </>
             ) : copying ? (
               <>

@@ -105,7 +105,7 @@ export function WaterTracker({ glasses, target, onAddGlass, onRemoveGlass }: Wat
                     <p className="text-xl font-black">
                         <span className={cn(
                             "transition-colors",
-                            Number(liters) >= target ? "text-green-400" : ""
+                            Number(liters) >= target ? "text-fuchsia-400" : ""
                         )}>
                             {liters}
                         </span>
@@ -120,8 +120,8 @@ export function WaterTracker({ glasses, target, onAddGlass, onRemoveGlass }: Wat
                     className={cn(
                         "h-full rounded-full transition-all duration-700",
                         Number(liters) >= target
-                            ? "bg-gradient-to-r from-green-500 to-emerald-400"
-                            : "bg-gradient-to-r from-fuchsia-500 to-blue-500"
+                            ? "bg-linear-to-r from-fuchsia-500 to-violet-500"
+                            : "bg-linear-to-r from-fuchsia-500 to-blue-500"
                     )}
                     style={{ width: `${percentage}%` }}
                 />
