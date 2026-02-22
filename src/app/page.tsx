@@ -14,6 +14,10 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useProfile, useFoodLogs, useWaterLogs, useFoodLogActions } from "@/hooks/useSupabase";
+import { toPng } from "html-to-image";
+import { Camera, Share2 } from "lucide-react";
+import { ShareSummary } from "@/components/dashboard/ShareSummary";
+import { useRef } from "react";
 
 export default function Dashboard() {
   const router = useRouter();
@@ -286,13 +290,55 @@ export default function Dashboard() {
     }
   };
 
+  const handleShareDay = async () => {
+    const el = document.getElementById("share-summary-card");
+    if (!el) return;
+
+    try {
+      const dataUrl = await toPng(el, { quality: 0.95 });
+
+      // Check if Web Share API is available for files
+      if (navigator.share && navigator.canShare) {
+        const blob = await (await fetch(dataUrl)).blob();
+        const file = new File([blob], `fitia-resumen-${selectedDate}.png`, { type: 'image/png' });
+
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: `Mi nutrición del ${selectedDate}`,
+            text: 'Resumen generado con Fitia Personal'
+          });
+          return;
+        }
+      }
+
+      // Fallback: Download the image
+      const link = document.createElement('a');
+      link.download = `fitia-resumen-${selectedDate}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (err) {
+      console.error("Error generating image:", err);
+      alert("No se pudo generar la imagen.");
+    }
+  };
+
   return (
     <main className="min-h-screen pb-32 overflow-x-hidden">
       {/* Header */}
       <header className="px-6 pt-12 pb-10 border-b border-fuchsia-500/10">
         <div className="flex justify-between items-center mb-8">
-          <div className="w-11 h-11 rounded-full bg-fuchsia-500/5 border border-fuchsia-500/10 flex items-center justify-center shadow-inner">
-            <span className="text-xs text-fuchsia-400/80 font-black">•••</span>
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-full bg-fuchsia-500/5 border border-fuchsia-500/10 flex items-center justify-center shadow-inner">
+              <span className="text-xs text-fuchsia-400/80 font-black">•••</span>
+            </div>
+            <button
+              onClick={handleShareDay}
+              className="w-11 h-11 rounded-full bg-blue-500/5 border border-blue-500/10 flex items-center justify-center shadow-inner active:scale-95 transition-transform group"
+              title="Compartir Resumen"
+            >
+              <Camera className="w-5 h-5 text-blue-400/80 group-hover:text-blue-400 transition-colors" />
+            </button>
           </div>
           <button
             onClick={() => setIsCalendarOpen(true)}
@@ -571,6 +617,27 @@ export default function Dashboard() {
       />
 
       <BottomNav />
+
+      {/* Hidden Share Summary for Image Generation */}
+      <div className="fixed -left-[9999px] top-0 pointer-events-none overflow-hidden h-0">
+        <ShareSummary
+          date={selectedDate}
+          targetKcal={targetKcal}
+          totalsConsumed={totalsConsumed}
+          meals={(() => {
+            const defaultMeals = ["Desayuno", "Almuerzo", "Cena", "Snack 1"];
+            const customMealsFromLogs = logs
+              .map(l => l.comida_tipo)
+              .filter(m => !defaultMeals.includes(m));
+            const allMeals = [...defaultMeals, ...Array.from(new Set(customMealsFromLogs))];
+
+            return allMeals.map(meal => ({
+              type: meal,
+              items: filterLogsByMeal(meal)
+            }));
+          })()}
+        />
+      </div>
     </main>
   );
 }
