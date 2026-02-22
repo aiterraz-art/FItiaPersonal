@@ -348,18 +348,18 @@ function DayContent({
       const dataUrl = await toPng(el, { quality: 0.95 });
       if (navigator.share && navigator.canShare) {
         const blob = await (await fetch(dataUrl)).blob();
-        const file = new File([blob], `fitia-resumen-${date}.png`, { type: 'image/png' });
+        const file = new File([blob], `elite-nutrition-${date}.png`, { type: 'image/png' });
         if (navigator.canShare({ files: [file] })) {
           await navigator.share({
             files: [file],
             title: `Mi nutrición del ${date}`,
-            text: 'Resumen generado con Fitia Personal'
+            text: 'Resumen Diario de Nutrición'
           });
           return;
         }
       }
       const link = document.createElement('a');
-      link.download = `fitia-resumen-${date}.png`;
+      link.download = `elite-nutrition-${date}.png`;
       link.href = dataUrl;
       link.click();
     } catch (err: any) {

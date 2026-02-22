@@ -40,7 +40,7 @@ export function ShareSummary({ date, targetKcal, totalsConsumed, meals }: ShareS
                             <Sparkles className="w-5 h-5 text-white" />
                         </div>
                         <span className="text-xl font-black bg-linear-to-r from-white to-zinc-400 bg-clip-text text-transparent tracking-tighter">
-                            FItia
+                            Elite Nutrition
                         </span>
                     </div>
                     <span className="text-zinc-500 text-[10px] font-bold uppercase tracking-[0.2em]">Personal Assistant</span>
@@ -118,7 +118,7 @@ export function ShareSummary({ date, targetKcal, totalsConsumed, meals }: ShareS
                 </p>
                 <div className="mt-4 flex items-center justify-center gap-2">
                     <div className="h-px w-8 bg-linear-to-r from-transparent to-zinc-800" />
-                    <span className="text-[8px] text-zinc-800 font-black tracking-[0.5em] uppercase">Fitia Personal</span>
+                    <span className="text-[8px] text-zinc-800 font-black tracking-[0.5em] uppercase">Elite Nutrition</span>
                     <div className="h-px w-8 bg-linear-to-l from-transparent to-zinc-800" />
                 </div>
             </div>
