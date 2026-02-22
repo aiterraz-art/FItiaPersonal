@@ -162,27 +162,38 @@ export default function Dashboard() {
     const userOrder = profile.orden_comidas || defaultOrder;
     const mealsWithLogs = Array.from(new Set(logs.map(l => l.comida_tipo)));
 
-    // 1. If it's the first time for this date/session, initialize fully
-    if (orderedMealNames.length === 0) {
-      const allPotential = Array.from(new Set([...userOrder, ...mealsWithLogs]));
-      const sorted = allPotential.sort((a, b) => {
+    // Combined list of meals we WANT to see
+    const targetMeals = Array.from(new Set([...userOrder, ...mealsWithLogs]))
+      .sort((a, b) => {
         const indexA = userOrder.indexOf(a);
         const indexB = userOrder.indexOf(b);
         if (indexA === -1 && indexB === -1) return 0;
         if (indexA === -1) return 1;
         if (indexB === -1) return -1;
         return indexA - indexB;
-      });
-      const visible = sorted.filter(m => userOrder.includes(m) || mealsWithLogs.includes(m));
-      setOrderedMealNames(visible);
+      })
+      .filter(m => userOrder.includes(m) || mealsWithLogs.includes(m));
+
+    // 1. If it's the first time for this date/session, initialize fully
+    if (orderedMealNames.length === 0) {
+      setOrderedMealNames(targetMeals);
     } else {
-      // 2. If it's already initialized, only ADD newly appearing meals (not in the list yet)
-      const missingMeals = mealsWithLogs.filter(m => !orderedMealNames.includes(m));
-      if (missingMeals.length > 0) {
-        setOrderedMealNames(prev => [...prev, ...missingMeals]);
+      // 2. If already initialized, we need to sync additions AND removals carefully
+      // but without breaking the user's current drag position if they are dragging.
+      const hasChanges =
+        targetMeals.some(m => !orderedMealNames.includes(m)) ||
+        orderedMealNames.some(m => !targetMeals.includes(m));
+
+      if (hasChanges) {
+        // Sync additions & removals but try to preserve order
+        const newOrder = [
+          ...orderedMealNames.filter(m => targetMeals.includes(m)),
+          ...targetMeals.filter(m => !orderedMealNames.includes(m))
+        ];
+        setOrderedMealNames(newOrder);
       }
     }
-  }, [profile, logs, selectedDate]); // Removed orderedMealNames from deps to prevent re-runs during move
+  }, [profile, logs, selectedDate]);
 
   useEffect(() => {
     async function initAuth() {
@@ -451,26 +462,33 @@ export default function Dashboard() {
   };
 
   const handleRemoveMeal = async (meal: string) => {
-    if (!profile) return;
+    if (!profile || !userId) return;
     const confirmed = confirm(`¿Estás seguro de que quieres ocultar "${meal}"? Esta categoría dejará de aparecer en tu dashboard a menos que tenga alimentos registrados.`);
     if (!confirmed) return;
 
+    // Optimistic update for UI state
+    const originalUIOrder = [...orderedMealNames];
+    setOrderedMealNames(prev => prev.filter(m => m !== meal));
+
     try {
-      if (userId) {
-        // 1. Delete logs for today
-        await deleteMealLogs(userId, selectedDate, meal);
+      // 1. Delete logs for today
+      await deleteMealLogs(userId, selectedDate, meal);
 
-        // 2. Remove from custom order
-        const currentOrder = profile.orden_comidas || ["Desayuno", "Snack 1", "Almuerzo", "Merienda", "Snack 2", "Cena"];
-        const nextOrder = currentOrder.filter((m: string) => m !== meal);
-        await updateMealOrder(nextOrder);
+      // 2. Remove from custom profile order
+      const defaultOrder = ["Desayuno", "Snack 1", "Almuerzo", "Merienda", "Snack 2", "Cena"];
+      const currentProfileOrder = profile.orden_comidas || defaultOrder;
+      const nextProfileOrder = currentProfileOrder.filter((m: string) => m !== meal);
 
-        await refetchProfile();
-        refetch();
-      }
-    } catch (err) {
+      await updateMealOrder(nextProfileOrder);
+
+      // 3. Refresh to sync with DB state
+      await refetchProfile();
+      refetch();
+    } catch (err: any) {
       console.error("Error deleting meal:", err);
-      alert("No se pudo eliminar la comida.");
+      // Rollback UI
+      setOrderedMealNames(originalUIOrder);
+      alert(`No se pudo eliminar la comida: ${err.message || 'Error desconocido'}`);
     }
   };
 
@@ -478,30 +496,34 @@ export default function Dashboard() {
     const newName = prompt(`Renombrar "${oldName}" a:`, oldName);
     if (!newName || !newName.trim() || newName === oldName) return;
 
+    if (!profile || !userId) return;
+    const trimmedNewName = newName.trim();
+
+    // Optimistic update for UI
+    const originalUIOrder = [...orderedMealNames];
+    setOrderedMealNames(prev => prev.map(m => m === oldName ? trimmedNewName : m));
+
     try {
-      if (userId) {
-        const trimmedNewName = newName.trim();
-        // 1. Update all logs for today
-        await renameMealType(userId, selectedDate, oldName, trimmedNewName);
+      // 1. Update all logs for today
+      await renameMealType(userId, selectedDate, oldName, trimmedNewName);
 
-        // 2. Update profile order preference
-        const defaultOrder = ["Desayuno", "Snack 1", "Almuerzo", "Merienda", "Snack 2", "Cena"];
-        const currentOrder = profile?.orden_comidas || defaultOrder;
-        const nextOrder = currentOrder.map((m: string) => m === oldName ? trimmedNewName : m);
+      // 2. Update profile order preference
+      const defaultOrder = ["Desayuno", "Snack 1", "Almuerzo", "Merienda", "Snack 2", "Cena"];
+      const currentOrder = profile.orden_comidas || defaultOrder;
+      const nextOrder = currentOrder.map((m: string) => m === oldName ? trimmedNewName : m);
 
-        // If the old name wasn't in the order (unlikely for defaults but possible for weird edge cases)
-        // ensure the new name IS in the order now.
-        if (!nextOrder.includes(trimmedNewName)) {
-          nextOrder.push(trimmedNewName);
-        }
-
-        await updateMealOrder(nextOrder);
-        await refetchProfile();
-        refetch();
+      if (!nextOrder.includes(trimmedNewName)) {
+        nextOrder.push(trimmedNewName);
       }
-    } catch (err) {
+
+      await updateMealOrder(nextOrder);
+      await refetchProfile();
+      refetch();
+    } catch (err: any) {
       console.error("Error renaming meal:", err);
-      alert("No se pudo renombrar la comida.");
+      // Rollback UI
+      setOrderedMealNames(originalUIOrder);
+      alert(`No se pudo renombrar la comida: ${err.message || 'Error desconocido'}`);
     }
   };
 
