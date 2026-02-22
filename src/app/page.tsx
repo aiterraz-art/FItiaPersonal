@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Copy, Check, Plus } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { CalorieArc, MacroBar } from "@/components/dashboard/ProgressCards";
 import { MealCard } from "@/components/dashboard/MealCard";
 import { WaterTracker } from "@/components/dashboard/WaterTracker";
@@ -278,7 +279,7 @@ export default function Dashboard() {
   };
 
   return (
-    <main className="min-h-screen pb-32">
+    <main className="min-h-screen pb-32 overflow-x-hidden">
       {/* Header */}
       <header className="px-6 pt-12 pb-10 border-b border-fuchsia-500/10">
         <div className="flex justify-between items-center mb-8">
@@ -322,127 +323,139 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* Progress Section */}
-      <section className="px-6 py-4">
-        <div className="glass-card overflow-hidden">
-          <CalorieArc
-            current={Math.round(totalsConsumed.kcal)}
-            planned={Math.round(totalsPlanned.kcal)}
-            target={targetKcal}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={selectedDate}
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          transition={{ duration: 0.3, ease: "easeOut" }}
+        >
+
+          {/* Progress Section */}
+          <section className="px-6 py-4">
+            <div className="glass-card overflow-hidden">
+              <CalorieArc
+                current={Math.round(totalsConsumed.kcal)}
+                planned={Math.round(totalsPlanned.kcal)}
+                target={targetKcal}
+              />
+
+              <div className="flex px-2 pb-8">
+                <MacroBar label="Proteínas" current={totalsConsumed.p} target={profile?.meta_p || 150} />
+                <MacroBar label="Carbs" current={totalsConsumed.c} target={profile?.meta_c || 200} />
+                <MacroBar label="Grasas" current={totalsConsumed.g} target={profile?.meta_g || 60} />
+              </div>
+
+              <div className="px-6 pb-6 pt-2">
+                <button className="w-full py-4 text-sm font-bold tracking-tight rounded-2xl border border-fuchsia-500/15 relative overflow-hidden group">
+                  <div className="absolute inset-0 bg-linear-to-r from-fuchsia-500/15 via-blue-500/10 to-fuchsia-500/15 opacity-60" />
+                  <span className="relative z-10 transition-transform group-active:scale-95 bg-linear-to-r from-fuchsia-300 to-blue-300 bg-clip-text text-transparent">Terminar Día</span>
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* Meals */}
+          <section className="px-6 py-2">
+            {(() => {
+              const defaultMeals = ["Desayuno", "Almuerzo", "Cena", "Snack 1"];
+              const customMealsFromLogs = logs
+                .map(l => l.comida_tipo)
+                .filter(m => !defaultMeals.includes(m));
+              const allMeals = [...defaultMeals, ...Array.from(new Set(customMealsFromLogs))];
+
+              return allMeals.map((meal) => {
+                const mealLogsForSummary = logs.filter(l => l.comida_tipo === meal);
+                const mealMacros = mealLogsForSummary.reduce((acc, log) => {
+                  const m = calculateLogMacros(log);
+                  return {
+                    p: acc.p + Math.round(m.p),
+                    c: acc.c + Math.round(m.c),
+                    g: acc.g + Math.round(m.g),
+                  };
+                }, { p: 0, c: 0, g: 0 });
+
+                return (
+                  <MealCard
+                    key={meal}
+                    title={meal}
+                    date={selectedDate}
+                    totalKcal={filterLogsByMeal(meal).reduce((a, b) => a + b.kcal, 0)}
+                    macros={mealMacros}
+                    items={filterLogsByMeal(meal)}
+                    onDelete={handleDeleteLog}
+                    onEdit={handleEditLog}
+                    onToggleConsumed={handleToggleConsumed}
+                    onToggleAllConsumed={(status) => handleToggleAllConsumed(meal, status)}
+                  />
+                );
+              });
+            })()}
+
+            {/* Add Custom Meal Button */}
+            <button
+              onClick={() => {
+                const name = prompt("Nombre de la nueva comida (ej: Snack 2, Pre-Entreno, Merienda):");
+                if (name && name.trim()) {
+                  router.push(`/add-food?date=${selectedDate}&meal=${encodeURIComponent(name.trim())}`);
+                }
+              }}
+              className="w-full mb-6 py-4 glass-card-subtle flex items-center justify-center gap-3 active:scale-[0.98] transition-all group border-dashed border-fuchsia-500/20"
+            >
+              <Plus className="w-5 h-5 text-fuchsia-400 transition-transform group-hover:rotate-90" />
+              <span className="text-sm font-bold text-zinc-400 group-hover:text-fuchsia-300 transition-colors">
+                Agregar otra comida
+              </span>
+            </button>
+
+            {logs.length === 0 && (
+              <button
+                onClick={handleCopyPreviousDay}
+                disabled={copying}
+                className="w-full mb-6 py-5 glass-card flex items-center justify-center gap-3 active:scale-[0.98] transition-all group"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-5 h-5 text-fuchsia-400" />
+                    <span className="text-sm font-bold text-fuchsia-400">¡Dieta copiada!</span>
+                  </>
+                ) : copying ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-fuchsia-500 border-t-transparent rounded-full animate-spin" />
+                    <span className="text-sm font-bold text-zinc-400">Copiando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-5 h-5 text-violet-400 group-hover:scale-110 transition-transform" />
+                    <span className="text-sm font-bold bg-gradient-to-r from-violet-400 to-blue-400 bg-clip-text text-transparent">
+                      Copiar dieta del d\u00eda anterior
+                    </span>
+                  </>
+                )}
+              </button>
+            )}
+
+            <WaterTracker glasses={glasses} target={3.3} onAddGlass={addGlass} onRemoveGlass={removeGlass} />
+          </section>
+
+          <AISuggestion
+            deficit={deficit}
+            macros={{ p: 20, c: 20, g: 5 }}
+            userId={userId || undefined}
+            date={selectedDate}
+            onPlanApplied={refetch}
           />
 
-          <div className="flex px-2 pb-8">
-            <MacroBar label="Proteínas" current={totalsConsumed.p} target={profile?.meta_p || 150} />
-            <MacroBar label="Carbs" current={totalsConsumed.c} target={profile?.meta_c || 200} />
-            <MacroBar label="Grasas" current={totalsConsumed.g} target={profile?.meta_g || 60} />
-          </div>
+          <EditLogModal
+            isOpen={!!editingLogData}
+            onClose={() => setEditingLogData(null)}
+            log={editingLogData}
+            onSave={handleUpdateLog}
+          />
 
-          <div className="px-6 pb-6 pt-2">
-            <button className="w-full py-4 text-sm font-bold tracking-tight rounded-2xl border border-fuchsia-500/15 relative overflow-hidden group">
-              <div className="absolute inset-0 bg-linear-to-r from-fuchsia-500/15 via-blue-500/10 to-fuchsia-500/15 opacity-60" />
-              <span className="relative z-10 transition-transform group-active:scale-95 bg-linear-to-r from-fuchsia-300 to-blue-300 bg-clip-text text-transparent">Terminar Día</span>
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* Meals */}
-      <section className="px-6 py-2">
-        {(() => {
-          const defaultMeals = ["Desayuno", "Almuerzo", "Cena", "Snack 1"];
-          const customMealsFromLogs = logs
-            .map(l => l.comida_tipo)
-            .filter(m => !defaultMeals.includes(m));
-          const allMeals = [...defaultMeals, ...Array.from(new Set(customMealsFromLogs))];
-
-          return allMeals.map((meal) => {
-            const mealLogsForSummary = logs.filter(l => l.comida_tipo === meal);
-            const mealMacros = mealLogsForSummary.reduce((acc, log) => {
-              const m = calculateLogMacros(log);
-              return {
-                p: acc.p + Math.round(m.p),
-                c: acc.c + Math.round(m.c),
-                g: acc.g + Math.round(m.g),
-              };
-            }, { p: 0, c: 0, g: 0 });
-
-            return (
-              <MealCard
-                key={meal}
-                title={meal}
-                date={selectedDate}
-                totalKcal={filterLogsByMeal(meal).reduce((a, b) => a + b.kcal, 0)}
-                macros={mealMacros}
-                items={filterLogsByMeal(meal)}
-                onDelete={handleDeleteLog}
-                onEdit={handleEditLog}
-                onToggleConsumed={handleToggleConsumed}
-                onToggleAllConsumed={(status) => handleToggleAllConsumed(meal, status)}
-              />
-            );
-          });
-        })()}
-
-        {/* Add Custom Meal Button */}
-        <button
-          onClick={() => {
-            const name = prompt("Nombre de la nueva comida (ej: Snack 2, Pre-Entreno, Merienda):");
-            if (name && name.trim()) {
-              router.push(`/add-food?date=${selectedDate}&meal=${encodeURIComponent(name.trim())}`);
-            }
-          }}
-          className="w-full mb-6 py-4 glass-card-subtle flex items-center justify-center gap-3 active:scale-[0.98] transition-all group border-dashed border-fuchsia-500/20"
-        >
-          <Plus className="w-5 h-5 text-fuchsia-400 transition-transform group-hover:rotate-90" />
-          <span className="text-sm font-bold text-zinc-400 group-hover:text-fuchsia-300 transition-colors">
-            Agregar otra comida
-          </span>
-        </button>
-
-        {logs.length === 0 && (
-          <button
-            onClick={handleCopyPreviousDay}
-            disabled={copying}
-            className="w-full mb-6 py-5 glass-card flex items-center justify-center gap-3 active:scale-[0.98] transition-all group"
-          >
-            {copied ? (
-              <>
-                <Check className="w-5 h-5 text-fuchsia-400" />
-                <span className="text-sm font-bold text-fuchsia-400">¡Dieta copiada!</span>
-              </>
-            ) : copying ? (
-              <>
-                <div className="w-5 h-5 border-2 border-fuchsia-500 border-t-transparent rounded-full animate-spin" />
-                <span className="text-sm font-bold text-zinc-400">Copiando...</span>
-              </>
-            ) : (
-              <>
-                <Copy className="w-5 h-5 text-violet-400 group-hover:scale-110 transition-transform" />
-                <span className="text-sm font-bold bg-gradient-to-r from-violet-400 to-blue-400 bg-clip-text text-transparent">
-                  Copiar dieta del d\u00eda anterior
-                </span>
-              </>
-            )}
-          </button>
-        )}
-
-        <WaterTracker glasses={glasses} target={3.3} onAddGlass={addGlass} onRemoveGlass={removeGlass} />
-      </section>
-
-      <AISuggestion
-        deficit={deficit}
-        macros={{ p: 20, c: 20, g: 5 }}
-        userId={userId || undefined}
-        date={selectedDate}
-        onPlanApplied={refetch}
-      />
-
-      <EditLogModal
-        isOpen={!!editingLogData}
-        onClose={() => setEditingLogData(null)}
-        log={editingLogData}
-        onSave={handleUpdateLog}
-      />
+        </motion.div>
+      </AnimatePresence>
 
       <MonthlyCalendar
         isOpen={isCalendarOpen}

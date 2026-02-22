@@ -477,75 +477,79 @@ function AddFoodContent() {
                             </div>
                         )}
 
-                        <div className="space-y-3">
-                            {(search.length > 0 ? results : history).map((food) => (
-                                <div key={food.id} className="relative group overflow-hidden rounded-2xl">
-                                    <div className="absolute inset-y-0 left-0 w-full bg-linear-to-r from-fuchsia-600 to-violet-600 flex items-center pl-6 z-0">
-                                        <PlusCircle className="w-6 h-6 text-white" />
-                                    </div>
+                        <motion.div layout className="space-y-3">
+                            <AnimatePresence mode="popLayout">
+                                {(search.length > 0 ? results : history).map((food) => (
+                                    <div key={food.id} className="relative group overflow-hidden rounded-2xl">
+                                        <div className="absolute inset-y-0 left-0 w-full bg-linear-to-r from-fuchsia-600 to-violet-600 flex items-center pl-6 z-0">
+                                            <PlusCircle className="w-6 h-6 text-white" />
+                                        </div>
 
-                                    <motion.div
-                                        drag="x"
-                                        dragConstraints={{ left: 0, right: 100 }}
-                                        dragElastic={0.2}
-                                        dragTransition={{ bounceStiffness: 600, bounceDamping: 20 }}
-                                        whileDrag={{ scale: 1.02 }}
-                                        onDragEnd={(_, info) => {
-                                            if (info.offset.x > 80) {
-                                                handleQuickAdd(food);
-                                            }
-                                        }}
-                                        className="relative z-10 will-change-transform"
-                                    >
-                                        <button
-                                            onClick={() => {
-                                                if (food.type === 'recipe') {
-                                                    setSelectedFood(normalizeRecipe(food));
-                                                } else {
-                                                    setSelectedFood({ ...food, type: 'food' });
+                                        <motion.div
+                                            layout
+                                            initial={{ opacity: 0, y: 20 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0, scale: 0.9 }}
+                                            drag="x"
+                                            dragConstraints={{ left: 0, right: 0 }}
+                                            dragElastic={0.6}
+                                            onDragEnd={(_, info) => {
+                                                if (info.offset.x > 100) {
+                                                    handleQuickAdd(food);
                                                 }
-                                                setSearch("");
                                             }}
-                                            className={cn(
-                                                "w-full glass-card p-4 flex justify-between items-center group active:scale-[0.98] transition-all",
-                                                food.isAI && "border-violet-500/30 bg-violet-500/5",
-                                                !food.isAI && search.length === 0 && "border-zinc-500/20 bg-zinc-900/40"
-                                            )}
+                                            className="relative z-10 will-change-transform cursor-grab active:cursor-grabbing"
                                         >
-                                            <div className="flex items-center gap-4">
-                                                <span className="text-2xl">
-                                                    {food.isAI ? '🌐' : (food.type === 'recipe' ? '👨‍🍳' : '🍽️')}
-                                                </span>
-                                                <div className="text-left">
-                                                    <p className="font-bold flex items-center gap-2">
-                                                        {food.nombre}
-                                                        {food.type === 'recipe' && (
-                                                            <span className="px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-400 text-[8px] font-black uppercase tracking-widest border border-violet-500/20">RECETA</span>
-                                                        )}
-                                                        {food.isAI && (
-                                                            <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 text-[8px] font-black uppercase tracking-widest border border-blue-500/20">WEB</span>
-                                                        )}
-                                                        {search.length === 0 && !food.isAI && (
-                                                            <span className="px-1.5 py-0.5 rounded bg-zinc-500/10 text-zinc-400 text-[8px] font-black uppercase tracking-widest border border-zinc-500/20">RECIENTE</span>
-                                                        )}
-                                                    </p>
-                                                    <p className="text-[10px] text-zinc-500 font-bold uppercase">
-                                                        {food.type === 'recipe' ? `${food.porciones} porciones` : (food.estado || 'n/a')}
-                                                        {food.isAI && ` • por 100g`}
-                                                    </p>
+                                            <button
+                                                onClick={() => {
+                                                    if (food.type === 'recipe') {
+                                                        setSelectedFood(normalizeRecipe(food));
+                                                    } else {
+                                                        setSelectedFood({ ...food, type: 'food' });
+                                                    }
+                                                    setSearch("");
+                                                }}
+                                                className={cn(
+                                                    "w-full glass-card p-4 flex justify-between items-center group active:scale-[0.98] transition-all",
+                                                    food.isAI && "border-violet-500/30 bg-violet-500/5",
+                                                    !food.isAI && search.length === 0 && "border-zinc-500/20 bg-zinc-900/40"
+                                                )}
+                                            >
+                                                <div className="flex items-center gap-4">
+                                                    <span className="text-2xl">
+                                                        {food.isAI ? '🌐' : (food.type === 'recipe' ? '👨‍🍳' : '🍽️')}
+                                                    </span>
+                                                    <div className="text-left">
+                                                        <p className="font-bold flex items-center gap-2">
+                                                            {food.nombre}
+                                                            {food.type === 'recipe' && (
+                                                                <span className="px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-400 text-[8px] font-black uppercase tracking-widest border border-violet-500/20">RECETA</span>
+                                                            )}
+                                                            {food.isAI && (
+                                                                <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 text-[8px] font-black uppercase tracking-widest border border-blue-500/20">WEB</span>
+                                                            )}
+                                                            {search.length === 0 && !food.isAI && (
+                                                                <span className="px-1.5 py-0.5 rounded bg-zinc-500/10 text-zinc-400 text-[8px] font-black uppercase tracking-widest border border-zinc-500/20">RECIENTE</span>
+                                                            )}
+                                                        </p>
+                                                        <p className="text-[10px] text-zinc-500 font-bold uppercase">
+                                                            {food.type === 'recipe' ? `${food.porciones} porciones` : (food.estado || 'n/a')}
+                                                            {food.isAI && ` • por 100g`}
+                                                        </p>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            <div className={cn(
-                                                "w-8 h-8 rounded-full flex items-center justify-center transition-all group-hover:scale-110",
-                                                food.isAI ? "bg-blue-500/20 text-blue-400" : "bg-linear-to-br from-fuchsia-500 to-blue-500 text-white shadow-lg shadow-fuchsia-500/20"
-                                            )}>
-                                                {food.isAI ? '✨' : '+'}
-                                            </div>
-                                        </button>
-                                    </motion.div>
-                                </div>
-                            ))}
-                        </div>
+                                                <div className={cn(
+                                                    "w-8 h-8 rounded-full flex items-center justify-center transition-all group-hover:scale-110",
+                                                    food.isAI ? "bg-blue-500/20 text-blue-400" : "bg-linear-to-br from-fuchsia-500 to-blue-500 text-white shadow-lg shadow-fuchsia-500/20"
+                                                )}>
+                                                    {food.isAI ? '✨' : '+'}
+                                                </div>
+                                            </button>
+                                        </motion.div>
+                                    </div>
+                                ))}
+                            </AnimatePresence>
+                        </motion.div>
                     </div>
 
                     <div className="mt-6">

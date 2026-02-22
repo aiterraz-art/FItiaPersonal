@@ -64,26 +64,35 @@ export function MealCard({ title, totalKcal, macros, items, date, onDelete, onEd
             </div>
 
             <div className="space-y-4 mb-6">
-                <AnimatePresence>
+                <AnimatePresence mode="popLayout">
                     {items.length > 0 ? items.map((item) => (
                         <div key={item.id} className="relative overflow-hidden rounded-2xl">
                             {/* Swipe Background (Delete) */}
                             {onDelete && (
-                                <div className="absolute inset-0 bg-red-600 flex items-center justify-end px-6">
-                                    <Trash2 className="w-5 h-5 text-white" />
+                                <div className="absolute inset-0 bg-linear-to-l from-red-600 to-red-500 flex items-center justify-end px-8">
+                                    <motion.div
+                                        initial={{ scale: 0.8, opacity: 0 }}
+                                        whileInView={{ scale: 1, opacity: 1 }}
+                                    >
+                                        <Trash2 className="w-5 h-5 text-white" />
+                                    </motion.div>
                                 </div>
                             )}
 
                             <motion.div
+                                layout
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
                                 drag="x"
-                                dragConstraints={{ left: -80, right: 0 }}
-                                dragElastic={0.1}
+                                dragConstraints={{ left: 0, right: 0 }}
+                                dragElastic={0.6}
                                 onDragEnd={(_, info) => {
-                                    if (info.offset.x < -60) {
+                                    if (info.offset.x < -100) {
                                         onDelete?.(item.id);
                                     }
                                 }}
-                                className="relative bg-[#050510] flex justify-between items-center group p-2 pr-0 rounded-2xl border border-transparent active:border-fuchsia-500/20 transition-colors"
+                                className="relative bg-[#050510] flex justify-between items-center group p-2 pr-0 rounded-2xl border border-transparent active:border-fuchsia-500/20 transition-all cursor-grab active:cursor-grabbing"
                             >
                                 <div
                                     className={cn(
