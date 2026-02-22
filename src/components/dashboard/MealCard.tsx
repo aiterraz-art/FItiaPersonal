@@ -76,7 +76,7 @@ function FoodLogItem({
                         onDelete?.(item.id);
                     }
                 }}
-                className="relative bg-[#050510] flex justify-between items-center group p-2 pr-0 rounded-2xl border border-transparent active:border-fuchsia-500/20 transition-all cursor-grab active:cursor-grabbing"
+                className="relative bg-[#050510] flex justify-between items-center group px-3 py-2 rounded-2xl border border-transparent active:border-fuchsia-500/20 transition-all cursor-grab active:cursor-grabbing"
             >
                 <div
                     className={cn(
@@ -130,7 +130,7 @@ function FoodLogItem({
                             onToggleConsumed?.(item.id, item.consumido);
                         }}
                         className={cn(
-                            "w-8 h-8 rounded-full border flex items-center justify-center shrink-0 transition-all duration-500 mr-2 cursor-pointer",
+                            "w-8 h-8 rounded-full border flex items-center justify-center shrink-0 transition-all duration-500 cursor-pointer",
                             item.consumido
                                 ? "bg-fuchsia-500 border-fuchsia-400 shadow-[0_0_15px_rgba(217,70,239,0.6)]"
                                 : "bg-white/5 border-white/10 hover:border-fuchsia-500/40"
@@ -177,7 +177,7 @@ export function MealCard({
                 title.toLowerCase().includes("snack") || title.toLowerCase().includes("merienda") ? "🍎" : "🍽️";
 
     return (
-        <div className="glass-card-subtle p-6 mb-5 group/card transition-all">
+        <div className="glass-card-subtle px-4 py-5 mb-5 group/card transition-all overflow-hidden">
             <div className="flex justify-between items-start mb-5">
                 <div className="flex items-center gap-4 flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-1 min-w-0">

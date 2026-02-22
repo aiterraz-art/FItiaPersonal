@@ -433,7 +433,7 @@ function DayContent({
 
 
   return (
-    <div className="w-full pb-24">
+    <div className="w-full max-w-full pb-24 overflow-hidden">
       <section className="px-6 py-4">
         <div className="glass-card overflow-hidden">
           <CalorieArc current={Math.round(totalsConsumed.kcal)} planned={Math.round(totalsPlanned.kcal)} target={targetKcal} />
