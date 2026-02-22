@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Check } from "lucide-react";
 
 interface ShareSummaryProps {
     date: string;
@@ -9,7 +9,7 @@ interface ShareSummaryProps {
     totalsConsumed: { kcal: number; p: number; c: number; g: number };
     meals: Array<{
         type: string;
-        items: Array<{ nombre: string; kcal: number; gramos: number; estado: string }>;
+        items: Array<{ nombre: string; kcal: number; gramos: number; estado: string; consumido: boolean }>;
     }>;
 }
 
@@ -98,10 +98,25 @@ export function ShareSummary({ date, targetKcal, totalsConsumed, meals }: ShareS
                                 {meal.items.map((item, iIdx) => (
                                     <div key={iIdx} className="flex justify-between items-center group">
                                         <div className="flex flex-col">
-                                            <span className="text-zinc-400 text-[11px] font-bold line-clamp-1">{item.nombre}</span>
+                                            <div className="flex items-center gap-1.5">
+                                                <span className={cn(
+                                                    "text-[11px] font-bold line-clamp-1",
+                                                    item.consumido ? "text-fuchsia-400" : "text-zinc-400"
+                                                )}>
+                                                    {item.nombre}
+                                                </span>
+                                                {item.consumido && (
+                                                    <div className="w-3 h-3 rounded-full bg-fuchsia-500/20 flex items-center justify-center">
+                                                        <Check className="w-2 h-2 text-fuchsia-400" />
+                                                    </div>
+                                                )}
+                                            </div>
                                             <span className="text-zinc-600 text-[9px] font-medium">{item.gramos}g • {item.estado}</span>
                                         </div>
-                                        <span className="text-zinc-500 text-[10px] font-bold">{item.kcal}</span>
+                                        <span className={cn(
+                                            "text-[10px] font-bold",
+                                            item.consumido ? "text-fuchsia-400/80" : "text-zinc-500"
+                                        )}>{item.kcal}</span>
                                     </div>
                                 ))}
                             </div>

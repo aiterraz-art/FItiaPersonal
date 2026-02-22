@@ -353,7 +353,7 @@ function DayContent({
         if (navigator.canShare({ files: [file] })) {
           await navigator.share({
             files: [file],
-            title: `Mi nutrición del ${date}`,
+            title: '',
             text: ''
           });
           return;
@@ -509,10 +509,10 @@ function DayContent({
             date={date}
             targetKcal={targetKcal}
             totalsConsumed={totalsConsumed}
-            meals={Array.from(new Set(logs.map(l => l.comida_tipo))).map(meal => ({
+            meals={orderedMealNames.map(meal => ({
               type: meal,
               items: filterLogsByMeal(meal)
-            }))}
+            })).filter(m => m.items.length > 0)}
           />
         </div>
       </div>
