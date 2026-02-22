@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Copy, Check, Plus } from "lucide-react";
 import { motion, AnimatePresence, Reorder, useDragControls } from "framer-motion";
 import { CalorieArc, MacroBar } from "@/components/dashboard/ProgressCards";
@@ -17,7 +17,6 @@ import { useProfile, useFoodLogs, useWaterLogs, useFoodLogActions } from "@/hook
 import { toPng } from "html-to-image";
 import { Camera, Share2 } from "lucide-react";
 import { ShareSummary } from "@/components/dashboard/ShareSummary";
-import { useRef } from "react";
 
 // Helper outside component
 const calculateLogMacros = (log: any) => {
@@ -151,6 +150,8 @@ function DayContent({
   const { logs, refetch, setLogs } = useFoodLogs(userId || undefined, date);
   const { toggleConsumed, toggleAllConsumed, renameMealType, deleteMealLogs } = useFoodLogActions();
   const { glasses, addGlass, removeGlass } = useWaterLogs(userId || undefined, date);
+
+  const lastHandledTrigger = useRef(shareTrigger);
 
   useEffect(() => {
     if (logs.length > 0 && date === new Date().toISOString().split("T")[0]) {
@@ -369,7 +370,8 @@ function DayContent({
   };
 
   useEffect(() => {
-    if (shareTrigger > 0) {
+    if (shareTrigger > lastHandledTrigger.current) {
+      lastHandledTrigger.current = shareTrigger;
       handleShareDay();
     }
   }, [shareTrigger]);
