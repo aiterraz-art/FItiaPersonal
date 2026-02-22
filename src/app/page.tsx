@@ -641,14 +641,14 @@ export default function Dashboard() {
             key={selectedDate}
             custom={direction}
             variants={{
-              enter: (d: number) => ({ x: d > 0 ? "100%" : d < 0 ? "-100%" : 0, opacity: 0.4 }),
+              enter: (d: number) => ({ x: d > 0 ? "100%" : d < 0 ? "-100%" : 0, opacity: 0 }),
               center: { x: 0, opacity: 1 },
-              exit: (d: number) => ({ x: d < 0 ? "100%" : d > 0 ? "-100%" : 0, opacity: 0.4 })
+              exit: (d: number) => ({ x: d < 0 ? "100%" : d > 0 ? "-100%" : 0, opacity: 0 })
             }}
             initial="enter"
             animate="center"
             exit="exit"
-            transition={{ x: { type: "spring", stiffness: 250, damping: 32, mass: 0.8 }, opacity: { duration: 0.3 } }}
+            transition={{ x: { type: "spring", stiffness: 250, damping: 32, mass: 0.8 }, opacity: { duration: 0.2 } }}
             drag="x"
             dragConstraints={{ left: 0, right: 0 }}
             dragElastic={1}
@@ -665,7 +665,7 @@ export default function Dashboard() {
                 handleDateChange(d.toISOString().split("T")[0]);
               }
             }}
-            className="w-full absolute inset-0"
+            className="w-full"
           >
             <DayContent
               userId={userId}
