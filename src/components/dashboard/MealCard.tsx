@@ -95,9 +95,11 @@ function FoodLogItem({
                     </div>
                     <div className="flex-1 min-w-0 relative">
                         <p className={cn(
-                            "text-sm font-bold tracking-tight truncate transition-all duration-500",
+                            "text-sm font-bold tracking-tight wrap-break-word whitespace-normal transition-all duration-500 line-clamp-2",
                             item.consumido ? "text-zinc-500" : "text-white"
-                        )}>
+                        )}
+                            title={item.nombre}
+                        >
                             {item.nombre}
                         </p>
                         <AnimatePresence>
@@ -113,9 +115,9 @@ function FoodLogItem({
                         <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">{item.estado}</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-3 ml-2">
+                <div className="flex items-center gap-3 ml-2 shrink-0">
                     <div className={cn(
-                        "text-right transition-all duration-500",
+                        "text-right transition-all duration-500 min-w-[50px]",
                         item.consumido ? "opacity-40" : "opacity-100"
                     )}>
                         <p className="text-sm font-black">{item.gramos}g</p>
@@ -200,7 +202,7 @@ export function MealCard({
                     </div>
                 </div>
                 <div
-                    className="flex flex-col items-end gap-2"
+                    className="flex flex-col items-end gap-2 shrink-0 ml-2"
                     onPointerDownCapture={(e) => e.stopPropagation()}
                     onPointerDown={(e) => e.stopPropagation()}
                     onMouseDown={(e) => e.stopPropagation()}
