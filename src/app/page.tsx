@@ -644,14 +644,14 @@ export default function Dashboard() {
       </header>
 
       <div className="relative min-h-[60vh]">
-        <AnimatePresence initial={false} custom={direction} mode="popLayout">
+        <AnimatePresence mode="wait" initial={false} custom={direction}>
           <motion.div
             key={selectedDate}
             custom={direction}
             variants={{
               enter: (direction: number) => ({
                 x: direction > 0 ? "100%" : direction < 0 ? "-100%" : 0,
-                opacity: 0
+                opacity: 0.8
               }),
               center: {
                 x: 0,
@@ -659,26 +659,27 @@ export default function Dashboard() {
               },
               exit: (direction: number) => ({
                 x: direction < 0 ? "100%" : direction > 0 ? "-100%" : 0,
-                opacity: 0
+                opacity: 0.8
               })
             }}
             initial="enter"
             animate="center"
             exit="exit"
             transition={{
-              x: { type: "spring", stiffness: 300, damping: 30 },
-              opacity: { duration: 0.2 }
+              x: { type: "spring", stiffness: 250, damping: 32, mass: 0.8 },
+              opacity: { duration: 0.3 }
             }}
             drag="x"
             dragConstraints={{ left: 0, right: 0 }}
-            dragElastic={0.4}
+            dragElastic={1}
             dragDirectionLock
             onDragEnd={(_, info) => {
-              if (info.offset.x > 100) {
+              const threshold = 50; // More responsive threshold
+              if (info.offset.x > threshold) {
                 const d = new Date(selectedDate + "T12:00:00");
                 d.setDate(d.getDate() - 1);
                 handleDateChange(d.toISOString().split("T")[0]);
-              } else if (info.offset.x < -100) {
+              } else if (info.offset.x < -threshold) {
                 const d = new Date(selectedDate + "T12:00:00");
                 d.setDate(d.getDate() + 1);
                 handleDateChange(d.toISOString().split("T")[0]);
