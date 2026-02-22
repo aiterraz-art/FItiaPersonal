@@ -435,7 +435,10 @@ export default function Dashboard() {
       link.download = `fitia-resumen-${selectedDate}.png`;
       link.href = dataUrl;
       link.click();
-    } catch (err) {
+    } catch (err: any) {
+      // Ignore cancellations
+      if (err.name === 'AbortError') return;
+
       console.error("Error generating image:", err);
       alert("No se pudo generar la imagen.");
     }
