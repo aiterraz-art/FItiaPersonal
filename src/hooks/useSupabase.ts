@@ -16,6 +16,86 @@ const globalCache: {
     waterLogIds: {}
 };
 
+export function usePreloader(userId: string | null, centerDate: string) {
+    useEffect(() => {
+        if (!userId || !centerDate) return;
+
+        async function preloadRange() {
+            const center = new Date(centerDate + "T12:00:00");
+            const dates: string[] = [];
+            for (let i = -3; i <= 3; i++) {
+                const d = new Date(center);
+                d.setDate(center.getDate() + i);
+                const ds = d.toISOString().split('T')[0];
+                // Only fetch if not already in cache to avoid redundant network usage
+                if (!globalCache.foodLogs[`${userId}:${ds}`]) {
+                    dates.push(ds);
+                }
+            }
+
+            if (dates.length === 0) return;
+
+            const startDate = dates[0];
+            const endDate = dates[dates.length - 1];
+
+            // Fetch Food Logs Range
+            const { data: foodData } = await supabase
+                .from('food_logs')
+                .select(`
+                    *,
+                    food_items (*),
+                    recipes (
+                        *,
+                        recipe_ingredients (
+                            *,
+                            food_items (*)
+                        )
+                    )
+                `)
+                .eq('user_id', userId)
+                .gte('fecha', startDate)
+                .lte('fecha', endDate);
+
+            if (foodData) {
+                // Initialize cache for all requested dates to prevent re-fetching the same range
+                dates.forEach(d => {
+                    globalCache.foodLogs[`${userId}:${d}`] = [];
+                });
+                // Fill with actual data
+                foodData.forEach(log => {
+                    const k = `${userId}:${log.fecha}`;
+                    if (!globalCache.foodLogs[k]) globalCache.foodLogs[k] = [];
+                    globalCache.foodLogs[k].push(log);
+                });
+            }
+
+            // Fetch Water Logs Range
+            const { data: waterData } = await supabase
+                .from('water_logs')
+                .select('id, fecha')
+                .eq('user_id', userId)
+                .gte('fecha', startDate)
+                .lte('fecha', endDate)
+                .order('created_at', { ascending: true });
+
+            if (waterData) {
+                dates.forEach(d => {
+                    globalCache.waterLogs[`${userId}:${d}`] = 0;
+                    globalCache.waterLogIds[`${userId}:${d}`] = [];
+                });
+                waterData.forEach(log => {
+                    const k = `${userId}:${log.fecha}`;
+                    globalCache.waterLogs[k] = (globalCache.waterLogs[k] || 0) + 1;
+                    if (!globalCache.waterLogIds[k]) globalCache.waterLogIds[k] = [];
+                    globalCache.waterLogIds[k].push(log.id);
+                });
+            }
+        }
+
+        preloadRange();
+    }, [userId, centerDate]);
+}
+
 export function useProfile(userId?: string) {
     const [profile, setProfile] = useState<any>(userId ? globalCache.profiles[userId] : null);
     const [loading, setLoading] = useState(!profile);

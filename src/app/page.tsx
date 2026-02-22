@@ -13,7 +13,7 @@ import { MonthlyCalendar } from "@/components/dashboard/MonthlyCalendar";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
-import { useProfile, useFoodLogs, useWaterLogs, useFoodLogActions } from "@/hooks/useSupabase";
+import { useProfile, useFoodLogs, useWaterLogs, useFoodLogActions, usePreloader } from "@/hooks/useSupabase";
 import { toPng } from "html-to-image";
 import { Camera, Share2 } from "lucide-react";
 import { ShareSummary } from "@/components/dashboard/ShareSummary";
@@ -535,6 +535,9 @@ export default function Dashboard() {
 
   const [selectedDate, setSelectedDate] = useState(getLocalDateString());
   const [direction, setDirection] = useState(0);
+
+  // Proactive Multi-Day Preloading (±3 days)
+  usePreloader(userId, selectedDate);
 
   const { profile, updateStreak, updateMealOrder, refetchProfile } = useProfile(userId || undefined);
 
