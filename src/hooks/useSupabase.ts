@@ -173,7 +173,21 @@ export function useFoodLogActions() {
         }
     };
 
-    return { toggleConsumed, toggleAllConsumed, renameMealType };
+    const deleteMealLogs = async (userId: string, date: string, mealType: string) => {
+        const { error } = await supabase
+            .from('food_logs')
+            .delete()
+            .eq('user_id', userId)
+            .eq('fecha', date)
+            .eq('comida_tipo', mealType);
+
+        if (error) {
+            console.error("Error deleting meal logs:", error);
+            throw error;
+        }
+    };
+
+    return { toggleConsumed, toggleAllConsumed, renameMealType, deleteMealLogs };
 }
 
 export function useWaterLogs(userId?: string, date?: string) {

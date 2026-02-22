@@ -27,6 +27,7 @@ interface MealCardProps {
     onMoveUp?: () => void;
     onMoveDown?: () => void;
     onRename?: () => void;
+    onDeleteMeal?: () => void;
 }
 
 export function MealCard({
@@ -41,7 +42,8 @@ export function MealCard({
     onToggleAllConsumed,
     onMoveUp,
     onMoveDown,
-    onRename
+    onRename,
+    onDeleteMeal
 }: MealCardProps) {
     const router = useRouter();
 
@@ -88,6 +90,14 @@ export function MealCard({
                                 className="p-2.5 rounded-xl bg-zinc-800/40 border border-white/5 text-zinc-400 active:bg-zinc-700 active:text-white transition-all active:scale-95"
                             >
                                 <Pencil className="w-4 h-4" />
+                            </button>
+                        )}
+                        {onDeleteMeal && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onDeleteMeal(); }}
+                                className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 active:bg-red-500 active:text-white transition-all active:scale-95"
+                            >
+                                <Trash2 className="w-4 h-4" />
                             </button>
                         )}
                     </div>

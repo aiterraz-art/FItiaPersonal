@@ -51,7 +51,7 @@ export default function Dashboard() {
 
   const { profile, updateStreak, updateMealOrder } = useProfile(userId || undefined);
   const { logs, refetch } = useFoodLogs(userId || undefined, selectedDate);
-  const { toggleConsumed, toggleAllConsumed, renameMealType } = useFoodLogActions();
+  const { toggleConsumed, toggleAllConsumed, renameMealType, deleteMealLogs } = useFoodLogActions();
   const { glasses, addGlass, removeGlass } = useWaterLogs(userId || undefined, selectedDate);
 
   useEffect(() => {
@@ -326,28 +326,55 @@ export default function Dashboard() {
   const handleMoveMeal = async (meal: string, direction: 'up' | 'down') => {
     if (!profile) return;
     const defaultOrder = ["Desayuno", "Snack 1", "Almuerzo", "Merienda", "Snack 2", "Cena"];
-    const currentOrder = profile.orden_comidas || defaultOrder;
-    const index = currentOrder.indexOf(meal);
-    if (index === -1) {
-      // If meal is not in current order, add it to the end and then move
-      const nextOrder = [...currentOrder, meal];
-      const newIndex = nextOrder.length - 1;
-      const targetIndex = direction === 'up' ? Math.max(0, newIndex - 1) : newIndex;
-      if (targetIndex !== newIndex) {
-        const result = [...nextOrder];
-        [result[newIndex], result[targetIndex]] = [result[targetIndex], result[newIndex]];
-        await updateMealOrder(result);
-      } else {
-        await updateMealOrder(nextOrder);
-      }
-      return;
-    }
+    const userOrder = profile.orden_comidas || defaultOrder;
+
+    // Get all unique meals currently in dashboard scope
+    const mealsFromLogs = Array.from(new Set(logs.map(l => l.comida_tipo)));
+    const allPotentialMeals = Array.from(new Set([...userOrder, ...mealsFromLogs]));
+
+    // Sort them exactly as they are appearing in the UI right now
+    const currentSorted = [...allPotentialMeals].sort((a, b) => {
+      const indexA = userOrder.indexOf(a);
+      const indexB = userOrder.indexOf(b);
+      if (indexA === -1 && indexB === -1) return 0;
+      if (indexA === -1) return 1;
+      if (indexB === -1) return -1;
+      return indexA - indexB;
+    });
+
+    const index = currentSorted.indexOf(meal);
+    if (index === -1) return;
 
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    if (targetIndex >= 0 && targetIndex < currentOrder.length) {
-      const nextOrder = [...currentOrder];
+    if (targetIndex >= 0 && targetIndex < currentSorted.length) {
+      const nextOrder = [...currentSorted];
       [nextOrder[index], nextOrder[targetIndex]] = [nextOrder[targetIndex], nextOrder[index]];
+
+      // Persist the entire list as the new order preference
       await updateMealOrder(nextOrder);
+    }
+  };
+
+  const handleRemoveMeal = async (meal: string) => {
+    if (!profile) return;
+    const confirmed = confirm(`¿Estás seguro de que quieres eliminar "${meal}"? Se borrarán todos los alimentos de esta comida para hoy.`);
+    if (!confirmed) return;
+
+    try {
+      if (userId) {
+        // 1. Delete logs for today
+        await deleteMealLogs(userId, selectedDate, meal);
+
+        // 2. Remove from custom order
+        const currentOrder = profile.orden_comidas || ["Desayuno", "Snack 1", "Almuerzo", "Merienda", "Snack 2", "Cena"];
+        const nextOrder = currentOrder.filter((m: string) => m !== meal);
+        await updateMealOrder(nextOrder);
+
+        refetch();
+      }
+    } catch (err) {
+      console.error("Error deleting meal:", err);
+      alert("No se pudo eliminar la comida.");
     }
   };
 
@@ -616,6 +643,7 @@ export default function Dashboard() {
                       onMoveUp={index > 0 ? () => handleMoveMeal(meal, 'up') : undefined}
                       onMoveDown={index < sortedMeals.length - 1 ? () => handleMoveMeal(meal, 'down') : undefined}
                       onRename={() => handleRenameMeal(meal)}
+                      onDeleteMeal={() => handleRemoveMeal(meal)}
                     />
                   );
                 });
