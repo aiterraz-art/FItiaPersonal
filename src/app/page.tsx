@@ -36,6 +36,14 @@ export default function Dashboard() {
   };
 
   const [selectedDate, setSelectedDate] = useState(getLocalDateString());
+  const [direction, setDirection] = useState(0);
+
+  const handleDateChange = (newDate: string) => {
+    const oldTime = new Date(selectedDate + "T12:00:00").getTime();
+    const newTime = new Date(newDate + "T12:00:00").getTime();
+    setDirection(newTime > oldTime ? 1 : -1);
+    setSelectedDate(newDate);
+  };
 
   const { profile, updateStreak } = useProfile(userId || undefined);
   const { logs, refetch } = useFoodLogs(userId || undefined, selectedDate);
@@ -300,217 +308,260 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="relative overflow-visible px-2">
-          <motion.div
-            drag="x"
-            dragConstraints={{ left: 0, right: 0 }}
-            dragElastic={0.5}
-            onDragEnd={(_, info) => {
-              if (info.offset.x > 50) {
-                // Swipe right -> Previous day
-                const d = new Date(selectedDate + "T12:00:00");
-                d.setDate(d.getDate() - 1);
-                setSelectedDate(d.toISOString().split("T")[0]);
-              } else if (info.offset.x < -50) {
-                // Swipe left -> Next day
-                const d = new Date(selectedDate + "T12:00:00");
-                d.setDate(d.getDate() + 1);
-                setSelectedDate(d.toISOString().split("T")[0]);
-              }
-            }}
-            className="flex justify-between items-center cursor-grab active:cursor-grabbing"
-          >
-            {carouselDays.map((item, i) => {
-              const isSelected = selectedDate === item.full;
-              const isToday = item.full === new Date().toISOString().split("T")[0];
+        <div className="relative overflow-hidden px-2 h-20">
+          <AnimatePresence initial={false} custom={direction}>
+            <motion.div
+              key={selectedDate}
+              custom={direction}
+              variants={{
+                enter: (direction: number) => ({
+                  x: direction > 0 ? "100%" : direction < 0 ? "-100%" : 0,
+                  opacity: 0
+                }),
+                center: {
+                  x: 0,
+                  opacity: 1
+                },
+                exit: (direction: number) => ({
+                  x: direction < 0 ? "100%" : direction > 0 ? "-100%" : 0,
+                  opacity: 0
+                })
+              }}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{
+                x: { type: "spring", stiffness: 300, damping: 30 },
+                opacity: { duration: 0.2 }
+              }}
+              drag="x"
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={0.5}
+              onDragEnd={(_, info) => {
+                if (info.offset.x > 50) {
+                  const d = new Date(selectedDate + "T12:00:00");
+                  d.setDate(d.getDate() - 1);
+                  handleDateChange(d.toISOString().split("T")[0]);
+                } else if (info.offset.x < -50) {
+                  const d = new Date(selectedDate + "T12:00:00");
+                  d.setDate(d.getDate() + 1);
+                  handleDateChange(d.toISOString().split("T")[0]);
+                }
+              }}
+              className="absolute inset-x-2 flex justify-between items-center cursor-grab active:cursor-grabbing pb-4"
+            >
+              {getCarouselDays().map((item, i) => {
+                const isSelected = selectedDate === item.full;
+                const isToday = item.full === new Date().toISOString().split("T")[0];
 
-              return (
-                <button
-                  key={item.full}
-                  onClick={() => setSelectedDate(item.full)}
-                  className="flex flex-col items-center gap-2 focus:outline-none group shrink-0 w-[14.28%]"
-                >
-                  <span className={cn(
-                    "text-[10px] font-bold transition-colors uppercase",
-                    isSelected ? "text-fuchsia-400" : "text-zinc-500 group-hover:text-fuchsia-300"
-                  )}>
-                    {item.day}
-                  </span>
-                  <div className={cn(
-                    "w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all relative",
-                    isSelected
-                      ? "bg-linear-to-r from-fuchsia-500 to-blue-500 text-white scale-110 shadow-lg shadow-fuchsia-500/30 ring-2 ring-fuchsia-400/20"
-                      : "text-white hover:bg-fuchsia-500/10"
-                  )}>
-                    {item.date}
-                    {isToday && !isSelected && (
-                      <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full border border-black" />
-                    )}
-                  </div>
-                  <div className={cn(
-                    "w-1 h-1 rounded-full transition-all",
-                    item.full < new Date().toISOString().split("T")[0]
-                      ? "bg-fuchsia-500/40"
-                      : isToday
-                        ? "bg-blue-400 shadow-[0_0_8px_rgba(59,130,246,0.5)]"
-                        : "bg-zinc-800"
-                  )} />
-                </button>
-              );
-            })}
-          </motion.div>
+                return (
+                  <button
+                    key={item.full}
+                    onClick={() => handleDateChange(item.full)}
+                    className="flex flex-col items-center gap-2 focus:outline-none group shrink-0 w-[14.28%]"
+                  >
+                    <span className={cn(
+                      "text-[10px] font-bold transition-colors uppercase",
+                      isSelected ? "text-fuchsia-400" : "text-zinc-500 group-hover:text-fuchsia-300"
+                    )}>
+                      {item.day}
+                    </span>
+                    <div className={cn(
+                      "w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all relative",
+                      isSelected
+                        ? "bg-linear-to-r from-fuchsia-500 to-blue-500 text-white scale-110 shadow-lg shadow-fuchsia-500/30 ring-2 ring-fuchsia-400/20"
+                        : "text-white hover:bg-fuchsia-500/10"
+                    )}>
+                      {item.date}
+                      {isToday && !isSelected && (
+                        <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full border border-black" />
+                      )}
+                    </div>
+                    <div className={cn(
+                      "w-1 h-1 rounded-full transition-all",
+                      item.full < new Date().toISOString().split("T")[0]
+                        ? "bg-fuchsia-500/40"
+                        : isToday
+                          ? "bg-blue-400 shadow-[0_0_8px_rgba(59,130,246,0.5)]"
+                          : "bg-zinc-800"
+                    )} />
+                  </button>
+                );
+              })}
+            </motion.div>
+          </AnimatePresence>
         </div>
       </header>
 
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={selectedDate}
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
-          transition={{ duration: 0.3, ease: "easeOut" }}
-          drag="x"
-          dragConstraints={{ left: 0, right: 0 }}
-          dragElastic={0.4}
-          dragDirectionLock
-          onDragEnd={(_, info) => {
-            if (info.offset.x > 100) {
-              const d = new Date(selectedDate + "T12:00:00");
-              d.setDate(d.getDate() - 1);
-              setSelectedDate(d.toISOString().split("T")[0]);
-            } else if (info.offset.x < -100) {
-              const d = new Date(selectedDate + "T12:00:00");
-              d.setDate(d.getDate() + 1);
-              setSelectedDate(d.toISOString().split("T")[0]);
-            }
-          }}
-          className="cursor-grab active:cursor-grabbing"
-        >
+      <div className="relative overflow-hidden min-h-[60vh]">
+        <AnimatePresence initial={false} custom={direction}>
+          <motion.div
+            key={selectedDate}
+            custom={direction}
+            variants={{
+              enter: (direction: number) => ({
+                x: direction > 0 ? "100%" : direction < 0 ? "-100%" : 0,
+                opacity: 0
+              }),
+              center: {
+                x: 0,
+                opacity: 1
+              },
+              exit: (direction: number) => ({
+                x: direction < 0 ? "100%" : direction > 0 ? "-100%" : 0,
+                opacity: 0
+              })
+            }}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{
+              x: { type: "spring", stiffness: 300, damping: 30 },
+              opacity: { duration: 0.2 }
+            }}
+            drag="x"
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.4}
+            dragDirectionLock
+            onDragEnd={(_, info) => {
+              if (info.offset.x > 100) {
+                const d = new Date(selectedDate + "T12:00:00");
+                d.setDate(d.getDate() - 1);
+                handleDateChange(d.toISOString().split("T")[0]);
+              } else if (info.offset.x < -100) {
+                const d = new Date(selectedDate + "T12:00:00");
+                d.setDate(d.getDate() + 1);
+                handleDateChange(d.toISOString().split("T")[0]);
+              }
+            }}
+            className="absolute inset-0 will-change-transform cursor-grab active:cursor-grabbing"
+          >
 
-          {/* Progress Section */}
-          <section className="px-6 py-4">
-            <div className="glass-card overflow-hidden">
-              <CalorieArc
-                current={Math.round(totalsConsumed.kcal)}
-                planned={Math.round(totalsPlanned.kcal)}
-                target={targetKcal}
-              />
+            {/* Progress Section */}
+            <section className="px-6 py-4">
+              <div className="glass-card overflow-hidden">
+                <CalorieArc
+                  current={Math.round(totalsConsumed.kcal)}
+                  planned={Math.round(totalsPlanned.kcal)}
+                  target={targetKcal}
+                />
 
-              <div className="flex px-2 pb-8">
-                <MacroBar label="Proteínas" current={totalsConsumed.p} target={profile?.meta_p || 150} />
-                <MacroBar label="Carbs" current={totalsConsumed.c} target={profile?.meta_c || 200} />
-                <MacroBar label="Grasas" current={totalsConsumed.g} target={profile?.meta_g || 60} />
+                <div className="flex px-2 pb-8">
+                  <MacroBar label="Proteínas" current={totalsConsumed.p} target={profile?.meta_p || 150} />
+                  <MacroBar label="Carbs" current={totalsConsumed.c} target={profile?.meta_c || 200} />
+                  <MacroBar label="Grasas" current={totalsConsumed.g} target={profile?.meta_g || 60} />
+                </div>
+
+                <div className="px-6 pb-6 pt-2">
+                  <button className="w-full py-4 text-sm font-bold tracking-tight rounded-2xl border border-fuchsia-500/15 relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-linear-to-r from-fuchsia-500/15 via-blue-500/10 to-fuchsia-500/15 opacity-60" />
+                    <span className="relative z-10 transition-transform group-active:scale-95 bg-linear-to-r from-fuchsia-300 to-blue-300 bg-clip-text text-transparent">Terminar Día</span>
+                  </button>
+                </div>
               </div>
+            </section>
 
-              <div className="px-6 pb-6 pt-2">
-                <button className="w-full py-4 text-sm font-bold tracking-tight rounded-2xl border border-fuchsia-500/15 relative overflow-hidden group">
-                  <div className="absolute inset-0 bg-linear-to-r from-fuchsia-500/15 via-blue-500/10 to-fuchsia-500/15 opacity-60" />
-                  <span className="relative z-10 transition-transform group-active:scale-95 bg-linear-to-r from-fuchsia-300 to-blue-300 bg-clip-text text-transparent">Terminar Día</span>
-                </button>
-              </div>
-            </div>
-          </section>
+            {/* Meals */}
+            <section className="px-6 py-2">
+              {(() => {
+                const defaultMeals = ["Desayuno", "Almuerzo", "Cena", "Snack 1"];
+                const customMealsFromLogs = logs
+                  .map(l => l.comida_tipo)
+                  .filter(m => !defaultMeals.includes(m));
+                const allMeals = [...defaultMeals, ...Array.from(new Set(customMealsFromLogs))];
 
-          {/* Meals */}
-          <section className="px-6 py-2">
-            {(() => {
-              const defaultMeals = ["Desayuno", "Almuerzo", "Cena", "Snack 1"];
-              const customMealsFromLogs = logs
-                .map(l => l.comida_tipo)
-                .filter(m => !defaultMeals.includes(m));
-              const allMeals = [...defaultMeals, ...Array.from(new Set(customMealsFromLogs))];
+                return allMeals.map((meal) => {
+                  const mealLogsForSummary = logs.filter(l => l.comida_tipo === meal);
+                  const mealMacros = mealLogsForSummary.reduce((acc, log) => {
+                    const m = calculateLogMacros(log);
+                    return {
+                      p: acc.p + Math.round(m.p),
+                      c: acc.c + Math.round(m.c),
+                      g: acc.g + Math.round(m.g),
+                    };
+                  }, { p: 0, c: 0, g: 0 });
 
-              return allMeals.map((meal) => {
-                const mealLogsForSummary = logs.filter(l => l.comida_tipo === meal);
-                const mealMacros = mealLogsForSummary.reduce((acc, log) => {
-                  const m = calculateLogMacros(log);
-                  return {
-                    p: acc.p + Math.round(m.p),
-                    c: acc.c + Math.round(m.c),
-                    g: acc.g + Math.round(m.g),
-                  };
-                }, { p: 0, c: 0, g: 0 });
+                  return (
+                    <MealCard
+                      key={meal}
+                      title={meal}
+                      date={selectedDate}
+                      totalKcal={filterLogsByMeal(meal).reduce((a, b) => a + b.kcal, 0)}
+                      macros={mealMacros}
+                      items={filterLogsByMeal(meal)}
+                      onDelete={handleDeleteLog}
+                      onEdit={handleEditLog}
+                      onToggleConsumed={handleToggleConsumed}
+                      onToggleAllConsumed={(status) => handleToggleAllConsumed(meal, status)}
+                    />
+                  );
+                });
+              })()}
 
-                return (
-                  <MealCard
-                    key={meal}
-                    title={meal}
-                    date={selectedDate}
-                    totalKcal={filterLogsByMeal(meal).reduce((a, b) => a + b.kcal, 0)}
-                    macros={mealMacros}
-                    items={filterLogsByMeal(meal)}
-                    onDelete={handleDeleteLog}
-                    onEdit={handleEditLog}
-                    onToggleConsumed={handleToggleConsumed}
-                    onToggleAllConsumed={(status) => handleToggleAllConsumed(meal, status)}
-                  />
-                );
-              });
-            })()}
-
-            {/* Add Custom Meal Button */}
-            <button
-              onClick={() => {
-                const name = prompt("Nombre de la nueva comida (ej: Snack 2, Pre-Entreno, Merienda):");
-                if (name && name.trim()) {
-                  router.push(`/add-food?date=${selectedDate}&meal=${encodeURIComponent(name.trim())}`);
-                }
-              }}
-              className="w-full mb-6 py-4 glass-card-subtle flex items-center justify-center gap-3 active:scale-[0.98] transition-all group border-dashed border-fuchsia-500/20"
-            >
-              <Plus className="w-5 h-5 text-fuchsia-400 transition-transform group-hover:rotate-90" />
-              <span className="text-sm font-bold text-zinc-400 group-hover:text-fuchsia-300 transition-colors">
-                Agregar otra comida
-              </span>
-            </button>
-
-            {logs.length === 0 && (
+              {/* Add Custom Meal Button */}
               <button
-                onClick={handleCopyPreviousDay}
-                disabled={copying}
-                className="w-full mb-6 py-5 glass-card flex items-center justify-center gap-3 active:scale-[0.98] transition-all group"
+                onClick={() => {
+                  const name = prompt("Nombre de la nueva comida (ej: Snack 2, Pre-Entreno, Merienda):");
+                  if (name && name.trim()) {
+                    router.push(`/add-food?date=${selectedDate}&meal=${encodeURIComponent(name.trim())}`);
+                  }
+                }}
+                className="w-full mb-6 py-4 glass-card-subtle flex items-center justify-center gap-3 active:scale-[0.98] transition-all group border-dashed border-fuchsia-500/20"
               >
-                {copied ? (
-                  <>
-                    <Check className="w-5 h-5 text-fuchsia-400" />
-                    <span className="text-sm font-bold text-fuchsia-400">¡Dieta copiada!</span>
-                  </>
-                ) : copying ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-fuchsia-500 border-t-transparent rounded-full animate-spin" />
-                    <span className="text-sm font-bold text-zinc-400">Copiando...</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-5 h-5 text-violet-400 group-hover:scale-110 transition-transform" />
-                    <span className="text-sm font-bold bg-gradient-to-r from-violet-400 to-blue-400 bg-clip-text text-transparent">
-                      Copiar dieta del d\u00eda anterior
-                    </span>
-                  </>
-                )}
+                <Plus className="w-5 h-5 text-fuchsia-400 transition-transform group-hover:rotate-90" />
+                <span className="text-sm font-bold text-zinc-400 group-hover:text-fuchsia-300 transition-colors">
+                  Agregar otra comida
+                </span>
               </button>
-            )}
 
-            <WaterTracker glasses={glasses} target={3.3} onAddGlass={addGlass} onRemoveGlass={removeGlass} />
-          </section>
+              {logs.length === 0 && (
+                <button
+                  onClick={handleCopyPreviousDay}
+                  disabled={copying}
+                  className="w-full mb-6 py-5 glass-card flex items-center justify-center gap-3 active:scale-[0.98] transition-all group"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="w-5 h-5 text-fuchsia-400" />
+                      <span className="text-sm font-bold text-fuchsia-400">¡Dieta copiada!</span>
+                    </>
+                  ) : copying ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-fuchsia-500 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-sm font-bold text-zinc-400">Copiando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-5 h-5 text-violet-400 group-hover:scale-110 transition-transform" />
+                      <span className="text-sm font-bold bg-gradient-to-r from-violet-400 to-blue-400 bg-clip-text text-transparent">
+                        Copiar dieta del d\u00eda anterior
+                      </span>
+                    </>
+                  )}
+                </button>
+              )}
 
-          <AISuggestion
-            deficit={deficit}
-            macros={{ p: 20, c: 20, g: 5 }}
-            userId={userId || undefined}
-            date={selectedDate}
-            onPlanApplied={refetch}
-          />
+              <WaterTracker glasses={glasses} target={3.3} onAddGlass={addGlass} onRemoveGlass={removeGlass} />
+            </section>
 
-          <EditLogModal
-            isOpen={!!editingLogData}
-            onClose={() => setEditingLogData(null)}
-            log={editingLogData}
-            onSave={handleUpdateLog}
-          />
+            <AISuggestion
+              deficit={deficit}
+              macros={{ p: 20, c: 20, g: 5 }}
+              userId={userId || undefined}
+              date={selectedDate}
+              onPlanApplied={refetch}
+            />
 
-        </motion.div>
-      </AnimatePresence>
+            <EditLogModal
+              isOpen={!!editingLogData}
+              onClose={() => setEditingLogData(null)}
+              log={editingLogData}
+              onSave={handleUpdateLog}
+            />
+
+          </motion.div>
+        </AnimatePresence>
+      </div>
 
       <MonthlyCalendar
         isOpen={isCalendarOpen}
