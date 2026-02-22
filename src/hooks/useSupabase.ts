@@ -3,9 +3,22 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 
+// In-memory cache to prevent 0-reset flickering during day transitions
+const globalCache: {
+    profiles: Record<string, any>;
+    foodLogs: Record<string, any[]>;
+    waterLogs: Record<string, number>;
+    waterLogIds: Record<string, string[]>;
+} = {
+    profiles: {},
+    foodLogs: {},
+    waterLogs: {},
+    waterLogIds: {}
+};
+
 export function useProfile(userId?: string) {
-    const [profile, setProfile] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
+    const [profile, setProfile] = useState<any>(userId ? globalCache.profiles[userId] : null);
+    const [loading, setLoading] = useState(!profile);
 
     useEffect(() => {
         if (!userId) return;
@@ -35,7 +48,9 @@ export function useProfile(userId?: string) {
                     }
                 }
 
-                setProfile({ ...data, racha_actual: currentStreak });
+                const updatedProfile = { ...data, racha_actual: currentStreak };
+                globalCache.profiles[userId!] = updatedProfile;
+                setProfile(updatedProfile);
             }
             setLoading(false);
         }
@@ -70,7 +85,9 @@ export function useProfile(userId?: string) {
             .eq('id', userId);
 
         if (!error) {
-            setProfile((p: any) => ({ ...p, racha_actual: newStreak, ultima_fecha_registro: today }));
+            const nextProfile = { ...profile, racha_actual: newStreak, ultima_fecha_registro: today };
+            globalCache.profiles[userId!] = nextProfile;
+            setProfile(nextProfile);
         }
     };
 
@@ -86,6 +103,7 @@ export function useProfile(userId?: string) {
         if (error) {
             console.error("Error fetching profile:", error);
         } else {
+            globalCache.profiles[userId!] = data;
             setProfile(data);
         }
         setLoading(false);
@@ -102,15 +120,18 @@ export function useProfile(userId?: string) {
             console.error("Error updating meal order:", error);
             throw error;
         }
-        setProfile((prev: any) => ({ ...prev, orden_comidas: newOrder }));
+        const nextProfile = { ...profile, orden_comidas: newOrder };
+        globalCache.profiles[userId!] = nextProfile;
+        setProfile(nextProfile);
     };
 
     return { profile, loading, updateStreak, updateMealOrder, refetchProfile: fetchProfile };
 }
 
 export function useFoodLogs(userId?: string, date?: string) {
-    const [logs, setLogs] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+    const cacheKey = `${userId}:${date}`;
+    const [logs, setLogs] = useState<any[]>(date ? globalCache.foodLogs[cacheKey] || [] : []);
+    const [loading, setLoading] = useState(!logs.length);
 
     const fetchLogs = useCallback(async () => {
         if (!userId || !date) return;
@@ -137,16 +158,22 @@ export function useFoodLogs(userId?: string, date?: string) {
         }
         if (data) {
             console.log(`Fetched ${data.length} logs for ${date}`);
+            globalCache.foodLogs[cacheKey] = data;
             setLogs(data);
         }
         setLoading(false);
-    }, [userId, date]);
+    }, [userId, date, cacheKey]);
 
     useEffect(() => {
         fetchLogs();
     }, [fetchLogs]);
 
-    return { logs, loading, refetch: fetchLogs, setLogs };
+    return {
+        logs, loading, refetch: fetchLogs, setLogs: (newLogs: any[]) => {
+            if (date) globalCache.foodLogs[cacheKey] = newLogs;
+            setLogs(newLogs);
+        }
+    };
 }
 
 export function useFoodLogActions() {
@@ -208,9 +235,10 @@ export function useFoodLogActions() {
 }
 
 export function useWaterLogs(userId?: string, date?: string) {
-    const [glasses, setGlasses] = useState(0);
-    const [waterLogIds, setWaterLogIds] = useState<string[]>([]);
-    const [loading, setLoading] = useState(true);
+    const cacheKey = `${userId}:${date}`;
+    const [glasses, setGlasses] = useState(date ? globalCache.waterLogs[cacheKey] || 0 : 0);
+    const [waterLogIds, setWaterLogIds] = useState<string[]>(date ? globalCache.waterLogIds[cacheKey] || [] : []);
+    const [loading, setLoading] = useState(!waterLogIds.length && glasses === 0);
 
     const fetchWater = useCallback(async () => {
         if (!userId || !date) return;
@@ -223,11 +251,15 @@ export function useWaterLogs(userId?: string, date?: string) {
             .order('created_at', { ascending: true });
 
         if (data) {
-            setGlasses(data.length);
-            setWaterLogIds(data.map(d => d.id));
+            const count = data.length;
+            const ids = data.map(d => d.id);
+            globalCache.waterLogs[cacheKey] = count;
+            globalCache.waterLogIds[cacheKey] = ids;
+            setGlasses(count);
+            setWaterLogIds(ids);
         }
         setLoading(false);
-    }, [userId, date]);
+    }, [userId, date, cacheKey]);
 
     useEffect(() => {
         fetchWater();
@@ -239,7 +271,9 @@ export function useWaterLogs(userId?: string, date?: string) {
             return;
         }
         // Optimistic update
-        setGlasses(prev => prev + 1);
+        const nextCount = glasses + 1;
+        setGlasses(nextCount);
+        if (date) globalCache.waterLogs[cacheKey] = nextCount;
 
         const { data, error } = await supabase
             .from('water_logs')
@@ -250,11 +284,15 @@ export function useWaterLogs(userId?: string, date?: string) {
         if (error) {
             console.error('Water add error:', error);
             // Revert on failure
-            setGlasses(prev => Math.max(0, prev - 1));
+            const revertCount = Math.max(0, glasses - 1);
+            setGlasses(revertCount);
+            if (date) globalCache.waterLogs[cacheKey] = revertCount;
             return;
         }
         if (data) {
-            setWaterLogIds(prev => [...prev, data.id]);
+            const nextIds = [...waterLogIds, data.id];
+            setWaterLogIds(nextIds);
+            if (date) globalCache.waterLogIds[cacheKey] = nextIds;
         }
     };
 
@@ -262,8 +300,15 @@ export function useWaterLogs(userId?: string, date?: string) {
         if (!userId || !date || waterLogIds.length === 0) return;
         const lastId = waterLogIds[waterLogIds.length - 1];
         // Optimistic update
-        setGlasses(prev => Math.max(0, prev - 1));
-        setWaterLogIds(prev => prev.slice(0, -1));
+        const nextCount = Math.max(0, glasses - 1);
+        const nextIds = waterLogIds.slice(0, -1);
+
+        setGlasses(nextCount);
+        setWaterLogIds(nextIds);
+        if (date) {
+            globalCache.waterLogs[cacheKey] = nextCount;
+            globalCache.waterLogIds[cacheKey] = nextIds;
+        }
 
         const { error } = await supabase
             .from('water_logs')
@@ -273,8 +318,14 @@ export function useWaterLogs(userId?: string, date?: string) {
         if (error) {
             console.error('Water remove error:', error);
             // Revert on failure
-            setGlasses(prev => prev + 1);
-            setWaterLogIds(prev => [...prev, lastId]);
+            const revertCount = glasses;
+            const revertIds = [...nextIds, lastId];
+            setGlasses(revertCount);
+            setWaterLogIds(revertIds);
+            if (date) {
+                globalCache.waterLogs[cacheKey] = revertCount;
+                globalCache.waterLogIds[cacheKey] = revertIds;
+            }
         }
     };
 

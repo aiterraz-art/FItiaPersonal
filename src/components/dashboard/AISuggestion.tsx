@@ -79,7 +79,16 @@ export function AISuggestion({ deficit, macros, userId, date, onPlanApplied }: A
                 original_unidad: 'gramos'
             }));
 
-            const { error } = await supabase.from('food_logs').insert(logsToInsert);
+            let { error } = await supabase.from('food_logs').insert(logsToInsert);
+
+            // FALLBACK: If columns are missing
+            if (error && error.message.includes("column") && error.message.includes("original_cantidad")) {
+                console.warn("Retrying AI plan insert without original_cantidad columns...");
+                const logsWithoutOriginal = logsToInsert.map(({ original_cantidad, original_unidad, ...rest }: any) => rest);
+                const { error: fallbackError } = await supabase.from('food_logs').insert(logsWithoutOriginal);
+                error = fallbackError;
+            }
+
             if (error) throw error;
 
             setIsOpen(false);

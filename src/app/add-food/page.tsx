@@ -234,7 +234,7 @@ function AddFoodContent() {
 
             const gramsToAdd = food.porcion_gramos ? Number(food.porcion_gramos) : 100;
 
-            const { error } = await supabase.from("food_logs").insert({
+            let { error } = await supabase.from("food_logs").insert({
                 user_id: user.id,
                 food_id: targetFoodId,
                 comida_tipo: (mealType || "Almuerzo") as any,
@@ -243,6 +243,19 @@ function AddFoodContent() {
                 original_cantidad: food.porcion_gramos ? 1 : 100,
                 original_unidad: food.porcion_gramos ? food.porcion_nombre : 'gramos'
             });
+
+            // FALLBACK: If column original_cantidad doesn't exist yet
+            if (error && error.message.includes("column") && error.message.includes("original_cantidad")) {
+                console.warn("Retrying insert without original_cantidad columns...");
+                const { error: fallbackError } = await supabase.from("food_logs").insert({
+                    user_id: user.id,
+                    food_id: targetFoodId,
+                    comida_tipo: (mealType || "Almuerzo") as any,
+                    gramos: gramsToAdd,
+                    fecha: targetDate
+                });
+                error = fallbackError;
+            }
 
             if (!error) {
                 // Stay on page as requested before
@@ -307,7 +320,7 @@ function AddFoodContent() {
                 setResults(prev => prev.map(f => f.id === selectedFood.id ? { ...persistedFood, type: 'food', isAI: false } : f));
             }
 
-            const { error } = await supabase.from("food_logs").insert({
+            let { error } = await supabase.from("food_logs").insert({
                 user_id: user.id,
                 food_id: targetFoodId,
                 recipe_id: targetRecipeId,
@@ -317,6 +330,20 @@ function AddFoodContent() {
                 original_cantidad: gramos,
                 original_unidad: unidad === 'gramos' ? 'gramos' : (selectedFood.porcion_nombre || 'porcion')
             });
+
+            // FALLBACK: If columns are missing
+            if (error && error.message.includes("column") && error.message.includes("original_cantidad")) {
+                console.warn("Retrying insert without original_cantidad columns...");
+                const { error: fallbackError } = await supabase.from("food_logs").insert({
+                    user_id: user.id,
+                    food_id: targetFoodId,
+                    recipe_id: targetRecipeId,
+                    comida_tipo: (mealType || "Almuerzo") as any,
+                    gramos: unidad === 'gramos' ? gramos : (gramos * (selectedFood.porcion_gramos || 100)),
+                    fecha: targetDate,
+                });
+                error = fallbackError;
+            }
 
             if (error) {
                 console.error("Error inserting food log:", error);
