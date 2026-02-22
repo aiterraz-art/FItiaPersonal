@@ -644,14 +644,14 @@ export default function Dashboard() {
       </header>
 
       <div className="relative min-h-[60vh]">
-        <AnimatePresence mode="wait" initial={false} custom={direction}>
+        <AnimatePresence mode="popLayout" initial={false} custom={direction}>
           <motion.div
             key={selectedDate}
             custom={direction}
             variants={{
               enter: (direction: number) => ({
                 x: direction > 0 ? "100%" : direction < 0 ? "-100%" : 0,
-                opacity: 0.8
+                opacity: 0.4
               }),
               center: {
                 x: 0,
@@ -659,7 +659,7 @@ export default function Dashboard() {
               },
               exit: (direction: number) => ({
                 x: direction < 0 ? "100%" : direction > 0 ? "-100%" : 0,
-                opacity: 0.8
+                opacity: 0.4
               })
             }}
             initial="enter"
@@ -674,7 +674,7 @@ export default function Dashboard() {
             dragElastic={1}
             dragDirectionLock
             onDragEnd={(_, info) => {
-              const threshold = 50; // More responsive threshold
+              const threshold = 50;
               if (info.offset.x > threshold) {
                 const d = new Date(selectedDate + "T12:00:00");
                 d.setDate(d.getDate() - 1);
