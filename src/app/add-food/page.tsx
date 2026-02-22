@@ -192,19 +192,52 @@ function AddFoodContent() {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
+            let targetFoodId = food.id;
+
+            // If it's an AI result, we need to persist it to the global database first
+            if (food.isAI) {
+                const foodData = {
+                    nombre: String(food.nombre || "Alimento IA"),
+                    categoria: String(food.categoria || "Otros"),
+                    estado: (['crudo', 'cocido', 'n/a'].includes(food.estado) ? food.estado : 'n/a') as any,
+                    kcal: Number(food.kcal) || 0,
+                    proteinas: Number(food.proteinas) || 0,
+                    carbohidratos: Number(food.carbohidratos) || 0,
+                    grasas: Number(food.grasas) || 0,
+                    porcion_nombre: food.porcion_nombre || null,
+                    porcion_gramos: food.porcion_gramos || null
+                };
+
+                const { data: persistedFood, error: foodError } = await supabase
+                    .from("food_items")
+                    .insert(foodData)
+                    .select()
+                    .single();
+
+                if (foodError) {
+                    console.error("Error creating AI food in quick add:", foodError);
+                    alert(`Error al guardar el nuevo alimento de IA: ${foodError.message}`);
+                    return;
+                }
+                targetFoodId = persistedFood.id;
+
+                // Update local history/results with the new ID to prevent multiple inserts if clicked again
+                setResults(prev => prev.map(f => f.id === food.id ? { ...persistedFood, type: 'food', isAI: false } : f));
+            }
+
             const gramsToAdd = food.porcion_gramos ? Number(food.porcion_gramos) : 100;
 
             const { error } = await supabase.from("food_logs").insert({
                 user_id: user.id,
-                food_id: food.id,
+                food_id: targetFoodId,
                 comida_tipo: (mealType || "Almuerzo") as any,
                 gramos: gramsToAdd,
                 fecha: targetDate
             });
 
             if (!error) {
-                // Remove navigation to main menu to allow adding more foods
-                // router.push("/"); 
+                // Stay on page as requested before
+                if (food.isAI) fetchHistory(); // Refresh history if it was a new item
             }
         } catch (err) {
             console.error(err);
@@ -249,6 +282,9 @@ function AddFoodContent() {
                     return;
                 }
                 targetFoodId = persistedFood.id;
+
+                // Update local state to show it's now a "regular" food item
+                setResults(prev => prev.map(f => f.id === selectedFood.id ? { ...persistedFood, type: 'food', isAI: false } : f));
             }
 
             const { error } = await supabase.from("food_logs").insert({
