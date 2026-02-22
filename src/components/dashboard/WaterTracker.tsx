@@ -88,7 +88,9 @@ function GlassIcon({ filled, isNext, onClick, index }: { filled: boolean; isNext
 
 export function WaterTracker({ glasses, target, onAddGlass, onRemoveGlass }: WaterTrackerProps) {
     const totalGlasses = Math.ceil(target / 0.25);
-    const displayGlasses = Math.min(totalGlasses, 14);
+    // Show at least the target number of glasses, or more if the user exceeds the target.
+    // We always show one extra slot (the "next" glass) unless we want a hard cap.
+    const displayGlasses = Math.max(totalGlasses, glasses + 1);
     const liters = (glasses * 0.25).toFixed(1);
     const percentage = Math.min((glasses / totalGlasses) * 100, 100);
 
