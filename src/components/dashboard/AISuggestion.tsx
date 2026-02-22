@@ -74,7 +74,9 @@ export function AISuggestion({ deficit, macros, userId, date, onPlanApplied }: A
                 food_id: m.food_id,
                 comida_tipo: m.comida_tipo,
                 gramos: m.gramos_cocido, // As specified by user
-                fecha: date
+                fecha: date,
+                original_cantidad: m.gramos_cocido,
+                original_unidad: 'gramos'
             }));
 
             const { error } = await supabase.from('food_logs').insert(logsToInsert);

@@ -10,7 +10,11 @@ export async function POST() {
 
         // Add consumido column to food_logs
         const { data, error } = await supabase.rpc("exec_sql", {
-            query: "ALTER TABLE public.food_logs ADD COLUMN IF NOT EXISTS consumido BOOLEAN DEFAULT FALSE"
+            query: `
+                ALTER TABLE public.food_logs ADD COLUMN IF NOT EXISTS consumido BOOLEAN DEFAULT FALSE;
+                ALTER TABLE public.food_logs ADD COLUMN IF NOT EXISTS original_cantidad NUMERIC;
+                ALTER TABLE public.food_logs ADD COLUMN IF NOT EXISTS original_unidad TEXT;
+            `
         });
 
         if (error) {
@@ -23,7 +27,11 @@ export async function POST() {
                     "Authorization": `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""}`
                 },
                 body: JSON.stringify({
-                    query: "ALTER TABLE public.food_logs ADD COLUMN IF NOT EXISTS consumido BOOLEAN DEFAULT FALSE"
+                    query: `
+                ALTER TABLE public.food_logs ADD COLUMN IF NOT EXISTS consumido BOOLEAN DEFAULT FALSE;
+                ALTER TABLE public.food_logs ADD COLUMN IF NOT EXISTS original_cantidad NUMERIC;
+                ALTER TABLE public.food_logs ADD COLUMN IF NOT EXISTS original_unidad TEXT;
+            `
                 })
             });
             const text = await res.text();

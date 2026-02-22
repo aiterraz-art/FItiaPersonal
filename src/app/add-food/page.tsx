@@ -102,8 +102,15 @@ function AddFoodContent() {
             if (data) {
                 const uniqueHistory = data.reduce((acc: any[], log: any) => {
                     if (!log.food_items) return acc;
-                    const exists = acc.find(f => f.nombre === log.food_items.nombre && f.estado === log.food_items.estado);
-                    if (!exists) acc.push({ ...log.food_items, type: 'food' });
+                    const exists = acc.find(f => f.id === log.food_items.id);
+                    if (!exists) {
+                        acc.push({
+                            ...log.food_items,
+                            type: 'food',
+                            last_cantidad: log.original_cantidad,
+                            last_unidad: log.original_unidad
+                        });
+                    }
                     return acc;
                 }, []);
                 setHistory(uniqueHistory);
@@ -232,7 +239,9 @@ function AddFoodContent() {
                 food_id: targetFoodId,
                 comida_tipo: (mealType || "Almuerzo") as any,
                 gramos: gramsToAdd,
-                fecha: targetDate
+                fecha: targetDate,
+                original_cantidad: food.porcion_gramos ? 1 : 100,
+                original_unidad: food.porcion_gramos ? food.porcion_nombre : 'gramos'
             });
 
             if (!error) {
@@ -293,7 +302,9 @@ function AddFoodContent() {
                 recipe_id: targetRecipeId,
                 comida_tipo: (mealType || "Almuerzo") as any,
                 gramos: unidad === 'gramos' ? gramos : (gramos * (selectedFood.porcion_gramos || 100)),
-                fecha: targetDate
+                fecha: targetDate,
+                original_cantidad: gramos,
+                original_unidad: unidad === 'gramos' ? 'gramos' : (selectedFood.porcion_nombre || 'porcion')
             });
 
             if (error) {
@@ -506,6 +517,10 @@ function AddFoodContent() {
                                                         setSelectedFood(normalizeRecipe(food));
                                                     } else {
                                                         setSelectedFood({ ...food, type: 'food' });
+                                                        if (food.last_cantidad) {
+                                                            setGramos(food.last_cantidad);
+                                                            setUnidad(food.last_unidad === 'gramos' ? 'gramos' : 'porcion');
+                                                        }
                                                     }
                                                     setSearch("");
                                                 }}
@@ -535,6 +550,9 @@ function AddFoodContent() {
                                                         <p className="text-[10px] text-zinc-500 font-bold uppercase">
                                                             {food.type === 'recipe' ? `${food.porciones} porciones` : (food.estado || 'n/a')}
                                                             {food.isAI && ` • por 100g`}
+                                                            {food.last_cantidad && (
+                                                                <span className="text-zinc-400"> • último: {food.last_cantidad}{food.last_unidad === 'gramos' ? 'g' : ` ${food.last_unidad}`}</span>
+                                                            )}
                                                         </p>
                                                     </div>
                                                 </div>
