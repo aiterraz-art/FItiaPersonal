@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle2, Plus, Trash2, ArrowUp, ArrowDown, Pencil, GripVertical } from "lucide-react";
+import { CheckCircle2, Plus, Trash2, ArrowUp, ArrowDown, GripVertical } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
@@ -67,7 +67,10 @@ export function MealCard({
                             {mealEmoji}
                         </div>
                         <div className="flex-1 min-w-0">
-                            <h3 className="text-lg font-black tracking-tight text-white flex items-center gap-2 truncate">
+                            <h3
+                                onClick={onRename}
+                                className="text-lg font-black tracking-tight text-white flex items-center gap-2 truncate cursor-pointer hover:text-fuchsia-400 active:scale-95 transition-all w-fit"
+                            >
                                 {title}
                             </h3>
                             <p className="text-[10px] bg-gradient-to-r from-fuchsia-400 to-blue-400 bg-clip-text text-transparent font-bold uppercase tracking-widest">{totalKcal} kcal</p>
@@ -102,17 +105,6 @@ export function MealCard({
                                 className="p-2.5 rounded-xl bg-zinc-800/40 border border-white/5 text-zinc-400 active:bg-zinc-700 active:text-white transition-all active:scale-95 touch-manipulation"
                             >
                                 <ArrowDown className="w-4 h-4" />
-                            </button>
-                        )}
-                        {onRename && (
-                            <button
-                                type="button"
-                                onPointerDown={(e) => e.stopPropagation()}
-                                onTouchStart={(e) => e.stopPropagation()}
-                                onClick={(e) => { e.stopPropagation(); onRename(); }}
-                                className="p-2.5 rounded-xl bg-zinc-800/40 border border-white/5 text-zinc-400 active:bg-zinc-700 active:text-white transition-all active:scale-95 touch-manipulation"
-                            >
-                                <Pencil className="w-4 h-4" />
                             </button>
                         )}
                         {onDeleteMeal && (
