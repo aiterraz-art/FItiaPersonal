@@ -447,9 +447,9 @@ export default function Dashboard() {
                 />
 
                 <div className="flex px-2 pb-8">
-                  <MacroBar label="Proteínas" current={totalsConsumed.p} target={profile?.meta_p || 150} />
-                  <MacroBar label="Carbs" current={totalsConsumed.c} target={profile?.meta_c || 200} />
-                  <MacroBar label="Grasas" current={totalsConsumed.g} target={profile?.meta_g || 60} />
+                  <MacroBar label="Proteínas" current={totalsConsumed.p} planned={totalsPlanned.p} target={profile?.meta_p || 150} />
+                  <MacroBar label="Carbs" current={totalsConsumed.c} planned={totalsPlanned.c} target={profile?.meta_c || 200} />
+                  <MacroBar label="Grasas" current={totalsConsumed.g} planned={totalsPlanned.g} target={profile?.meta_g || 60} />
                 </div>
 
                 <div className="px-6 pb-6 pt-2">

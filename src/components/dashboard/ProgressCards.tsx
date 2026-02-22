@@ -73,7 +73,7 @@ export function CalorieArc({ current, planned, target }: CalorieArcProps) {
                     <div className="flex items-baseline gap-1.5 translate-y-1">
                         <span className={cn(
                             "font-black tracking-tighter bg-gradient-to-r from-fuchsia-400 to-blue-400 bg-clip-text text-transparent leading-none",
-                            current > 9999 ? "text-4xl" : "text-6xl"
+                            current > 9999 ? "text-3xl" : "text-5xl"
                         )}>
                             {new Intl.NumberFormat().format(current)}
                         </span>
@@ -103,10 +103,11 @@ export function CalorieArc({ current, planned, target }: CalorieArcProps) {
 interface MacroBarProps {
     label: string;
     current: number;
+    planned: number;
     target: number;
 }
 
-export function MacroBar({ label, current, target }: MacroBarProps) {
+export function MacroBar({ label, current, planned, target }: MacroBarProps) {
     const percentage = Math.min((current / target) * 100, 100);
 
     const gradientClass =
@@ -131,9 +132,14 @@ export function MacroBar({ label, current, target }: MacroBarProps) {
                     style={{ width: `${percentage}%` }}
                 />
             </div>
-            <div className="mt-2 flex items-baseline gap-0.5 overflow-hidden">
-                <span className={cn("font-black tracking-tighter truncate", current > 999 ? "text-[10px]" : "text-xs")}>{Math.round(current)}</span>
-                <span className="text-zinc-500 font-bold text-[8px] sm:text-[9px] opacity-60">/ {target}g</span>
+            <div className="mt-2 flex flex-col overflow-hidden">
+                <div className="flex items-baseline gap-0.5">
+                    <span className={cn("font-black tracking-tighter truncate", current > 999 ? "text-[10px]" : "text-xs")}>{Math.round(current)}</span>
+                    <span className="text-zinc-500 font-bold text-[8px] sm:text-[9px] opacity-60">/ {target}g</span>
+                </div>
+                <span className="text-zinc-600 font-black text-[8px] uppercase tracking-widest mt-0.5 whitespace-nowrap opacity-80">
+                    Plan: <span className="text-zinc-400">{Math.round(planned)}g</span>
+                </span>
             </div>
         </div>
     );
