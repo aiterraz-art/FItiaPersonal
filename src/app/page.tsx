@@ -393,8 +393,8 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <div className="relative overflow-hidden min-h-[60vh]">
-        <AnimatePresence initial={false} custom={direction}>
+      <div className="relative min-h-[60vh]">
+        <AnimatePresence initial={false} custom={direction} mode="popLayout">
           <motion.div
             key={selectedDate}
             custom={direction}
@@ -434,7 +434,7 @@ export default function Dashboard() {
                 handleDateChange(d.toISOString().split("T")[0]);
               }
             }}
-            className="absolute inset-0 will-change-transform cursor-grab active:cursor-grabbing"
+            className="w-full will-change-transform cursor-grab active:cursor-grabbing pb-24"
           >
 
             {/* Progress Section */}
