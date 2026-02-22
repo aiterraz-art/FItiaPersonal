@@ -353,7 +353,7 @@ function DayContent({
           await navigator.share({
             files: [file],
             title: `Mi nutrición del ${date}`,
-            text: 'Resumen Diario de Nutrición'
+            text: ''
           });
           return;
         }

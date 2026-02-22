@@ -47,7 +47,6 @@ export function ShareSummary({ date, targetKcal, totalsConsumed, meals }: ShareS
                 </div>
                 <div className="text-right">
                     <span className="text-fuchsia-400 font-black text-xs uppercase tracking-widest block">{formattedDate}</span>
-                    <span className="text-zinc-500 text-[10px] font-medium block mt-1">Resumen Diario de Nutrición</span>
                 </div>
             </div>
 
