@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Copy, Check, Plus } from "lucide-react";
-import { motion, AnimatePresence, Reorder } from "framer-motion";
+import { motion, AnimatePresence, Reorder, useDragControls } from "framer-motion";
 import { CalorieArc, MacroBar } from "@/components/dashboard/ProgressCards";
 import { MealCard } from "@/components/dashboard/MealCard";
 import { WaterTracker } from "@/components/dashboard/WaterTracker";
@@ -18,6 +18,104 @@ import { toPng } from "html-to-image";
 import { Camera, Share2 } from "lucide-react";
 import { ShareSummary } from "@/components/dashboard/ShareSummary";
 import { useRef } from "react";
+
+// Helper outside component
+const calculateLogMacros = (log: any) => {
+  if (log.food_items) {
+    const factor = (log.gramos || 0) / 100;
+    return {
+      kcal: Number(log.food_items.kcal || 0) * factor,
+      p: Number(log.food_items.proteinas || 0) * factor,
+      c: Number(log.food_items.carbohidratos || 0) * factor,
+      g: Number(log.food_items.grasas || 0) * factor,
+      nombre: log.food_items.nombre,
+      info: log.food_items.estado || "n/a"
+    };
+  } else if (log.recipes) {
+    const recipe = log.recipes;
+    const ingredients = recipe.recipe_ingredients || [];
+    const portionsInRecipe = recipe.porciones || 1;
+    const factor = (log.gramos || 0) / 100;
+
+    const totalKcal = ingredients.reduce((acc: number, ing: any) => acc + (Number(ing.food_items?.kcal || 0) * (ing.gramos / 100)), 0);
+    const totalP = ingredients.reduce((acc: number, ing: any) => acc + (Number(ing.food_items?.proteinas || 0) * (ing.gramos / 100)), 0);
+    const totalC = ingredients.reduce((acc: number, ing: any) => acc + (Number(ing.food_items?.carbohidratos || 0) * (ing.gramos / 100)), 0);
+    const totalG = ingredients.reduce((acc: number, ing: any) => acc + (Number(ing.food_items?.grasas || 0) * (ing.gramos / 100)), 0);
+
+    const scaleFactor = factor / portionsInRecipe;
+
+    return {
+      kcal: totalKcal * scaleFactor,
+      p: totalP * scaleFactor,
+      c: totalC * scaleFactor,
+      g: totalG * scaleFactor,
+      nombre: recipe.nombre,
+      info: "Receta"
+    };
+  }
+  return { kcal: 0, p: 0, c: 0, g: 0, nombre: "Desconocido", info: "" };
+};
+
+function MealReorderItem({
+  meal,
+  index,
+  orderedMealNames,
+  logs,
+  selectedDate,
+  handleDeleteLog,
+  handleEditLog,
+  handleToggleConsumed,
+  handleToggleAllConsumed,
+  handleMoveMeal,
+  handleRenameMeal,
+  handleRemoveMeal
+}: any) {
+  const dragControls = useDragControls();
+  const mealLogsForSummary = logs.filter((l: any) => l.comida_tipo === meal);
+  const mealMacros = mealLogsForSummary.reduce((acc: any, log: any) => {
+    const m = calculateLogMacros(log);
+    return {
+      p: acc.p + Math.round(m.p),
+      c: acc.c + Math.round(m.c),
+      g: acc.g + Math.round(m.g),
+    };
+  }, { p: 0, c: 0, g: 0 });
+
+  return (
+    <Reorder.Item
+      value={meal}
+      dragListener={false}
+      dragControls={dragControls}
+      className="list-none"
+      layout
+      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+    >
+      <MealCard
+        title={meal}
+        date={selectedDate}
+        totalKcal={mealLogsForSummary.reduce((acc: number, log: any) => acc + Math.round(calculateLogMacros(log).kcal), 0)}
+        macros={mealMacros}
+        items={mealLogsForSummary.map((l: any) => ({
+          id: l.id,
+          nombre: l.food_items?.nombre || l.recipes?.nombre || "Alimento",
+          gramos: l.gramos,
+          kcal: Math.round(calculateLogMacros(l).kcal),
+          estado: l.estado || "Crudo",
+          consumido: l.consumido
+        }))}
+        onDelete={handleDeleteLog}
+        onEdit={handleEditLog}
+        onToggleConsumed={handleToggleConsumed}
+        onToggleAllConsumed={(status: boolean) => handleToggleAllConsumed(meal, status)}
+        onMoveUp={index > 0 ? () => handleMoveMeal(meal, 'up') : undefined}
+        onMoveDown={index < orderedMealNames.length - 1 ? () => handleMoveMeal(meal, 'down') : undefined}
+        onRename={() => handleRenameMeal(meal)}
+        onDeleteMeal={() => handleRemoveMeal(meal)}
+        dragControls={dragControls}
+      />
+    </Reorder.Item>
+  );
+}
 
 export default function Dashboard() {
   const router = useRouter();
@@ -56,14 +154,17 @@ export default function Dashboard() {
 
   const [orderedMealNames, setOrderedMealNames] = useState<string[]>([]);
 
-  // Initialize orderedMealNames based on profile and logs
+  // Stable initialization of orderedMealNames
   useEffect(() => {
-    if (profile && logs) {
-      const defaultOrder = ["Desayuno", "Snack 1", "Almuerzo", "Merienda", "Snack 2", "Cena"];
-      const userOrder = profile.orden_comidas || defaultOrder;
-      const mealsFromLogs = Array.from(new Set(logs.map(l => l.comida_tipo)));
-      const allPotential = Array.from(new Set([...userOrder, ...mealsFromLogs]));
+    if (!profile || !logs) return;
 
+    const defaultOrder = ["Desayuno", "Snack 1", "Almuerzo", "Merienda", "Snack 2", "Cena"];
+    const userOrder = profile.orden_comidas || defaultOrder;
+    const mealsWithLogs = Array.from(new Set(logs.map(l => l.comida_tipo)));
+
+    // 1. If it's the first time for this date/session, initialize fully
+    if (orderedMealNames.length === 0) {
+      const allPotential = Array.from(new Set([...userOrder, ...mealsWithLogs]));
       const sorted = allPotential.sort((a, b) => {
         const indexA = userOrder.indexOf(a);
         const indexB = userOrder.indexOf(b);
@@ -72,15 +173,16 @@ export default function Dashboard() {
         if (indexB === -1) return -1;
         return indexA - indexB;
       });
-
-      const visible = sorted.filter(m => userOrder.includes(m) || logs.some(l => l.comida_tipo === m));
-
-      // Only set if different to avoid unnecessary re-renders
-      if (JSON.stringify(visible) !== JSON.stringify(orderedMealNames)) {
-        setOrderedMealNames(visible);
+      const visible = sorted.filter(m => userOrder.includes(m) || mealsWithLogs.includes(m));
+      setOrderedMealNames(visible);
+    } else {
+      // 2. If it's already initialized, only ADD newly appearing meals (not in the list yet)
+      const missingMeals = mealsWithLogs.filter(m => !orderedMealNames.includes(m));
+      if (missingMeals.length > 0) {
+        setOrderedMealNames(prev => [...prev, ...missingMeals]);
       }
     }
-  }, [profile, logs, orderedMealNames]);
+  }, [profile, logs, selectedDate]); // Removed orderedMealNames from deps to prevent re-runs during move
 
   useEffect(() => {
     async function initAuth() {
@@ -117,45 +219,7 @@ export default function Dashboard() {
 
   const carouselDays = getCarouselDays();
 
-  // Calculate Totals helper
-  const calculateLogMacros = (log: any) => {
-    if (log.food_items) {
-      const factor = log.gramos / 100;
-      return {
-        kcal: Number(log.food_items.kcal) * factor,
-        p: Number(log.food_items.proteinas) * factor,
-        c: Number(log.food_items.carbohidratos) * factor,
-        g: Number(log.food_items.grasas) * factor,
-        nombre: log.food_items.nombre,
-        info: log.food_items.estado || "n/a"
-      };
-    } else if (log.recipes) {
-      const recipe = log.recipes;
-      const ingredients = recipe.recipe_ingredients || [];
-      const portionsInRecipe = recipe.porciones || 1;
-      const loggedPortions = log.gramos / 100;
-
-      const totalRecipe = ingredients.reduce((acc: any, ing: any) => {
-        const factor = ing.gramos / 100;
-        return {
-          kcal: acc.kcal + (ing.food_items.kcal * factor),
-          p: acc.p + (ing.food_items.proteinas * factor),
-          c: acc.c + (ing.food_items.carbohidratos * factor),
-          g: acc.g + (ing.food_items.grasas * factor),
-        };
-      }, { kcal: 0, p: 0, c: 0, g: 0 });
-
-      return {
-        kcal: (totalRecipe.kcal / portionsInRecipe) * loggedPortions,
-        p: (totalRecipe.p / portionsInRecipe) * loggedPortions,
-        c: (totalRecipe.c / portionsInRecipe) * loggedPortions,
-        g: (totalRecipe.g / portionsInRecipe) * loggedPortions,
-        nombre: recipe.nombre,
-        info: `${loggedPortions} porción${loggedPortions !== 1 ? "es" : ""}`
-      };
-    }
-    return { kcal: 0, p: 0, c: 0, g: 0, nombre: "Desconocido", info: "n/a" };
-  };
+  // (calculateLogMacros is now defined at top level)
 
   const totalsPlanned = logs.reduce((acc, log) => {
     const m = calculateLogMacros(log);
@@ -633,48 +697,23 @@ export default function Dashboard() {
                 onReorder={handleReorderMeals}
                 className="space-y-0"
               >
-                {orderedMealNames.map((meal, index) => {
-                  const mealLogsForSummary = logs.filter(l => l.comida_tipo === meal);
-                  const mealMacros = mealLogsForSummary.reduce((acc, log) => {
-                    const m = calculateLogMacros(log);
-                    return {
-                      p: acc.p + Math.round(m.p),
-                      c: acc.c + Math.round(m.c),
-                      g: acc.g + Math.round(m.g),
-                    };
-                  }, { p: 0, c: 0, g: 0 });
-
-                  return (
-                    <Reorder.Item
-                      key={meal}
-                      value={meal}
-                      className="list-none"
-                    >
-                      <MealCard
-                        title={meal}
-                        date={selectedDate}
-                        totalKcal={mealLogsForSummary.reduce((acc, log) => acc + Math.round(calculateLogMacros(log).kcal), 0)}
-                        macros={mealMacros}
-                        items={mealLogsForSummary.map(l => ({
-                          id: l.id,
-                          nombre: l.food_items?.nombre || l.recipes?.nombre || "Alimento",
-                          gramos: l.gramos,
-                          kcal: Math.round(calculateLogMacros(l).kcal),
-                          estado: l.estado || "Crudo",
-                          consumido: l.consumido
-                        }))}
-                        onDelete={handleDeleteLog}
-                        onEdit={handleEditLog}
-                        onToggleConsumed={handleToggleConsumed}
-                        onToggleAllConsumed={(status) => handleToggleAllConsumed(meal, status)}
-                        onMoveUp={index > 0 ? () => handleMoveMeal(meal, 'up') : undefined}
-                        onMoveDown={index < orderedMealNames.length - 1 ? () => handleMoveMeal(meal, 'down') : undefined}
-                        onRename={() => handleRenameMeal(meal)}
-                        onDeleteMeal={() => handleRemoveMeal(meal)}
-                      />
-                    </Reorder.Item>
-                  );
-                })}
+                {orderedMealNames.map((meal, index) => (
+                  <MealReorderItem
+                    key={meal}
+                    meal={meal}
+                    index={index}
+                    orderedMealNames={orderedMealNames}
+                    logs={logs}
+                    selectedDate={selectedDate}
+                    handleDeleteLog={handleDeleteLog}
+                    handleEditLog={handleEditLog}
+                    handleToggleConsumed={handleToggleConsumed}
+                    handleToggleAllConsumed={handleToggleAllConsumed}
+                    handleMoveMeal={handleMoveMeal}
+                    handleRenameMeal={handleRenameMeal}
+                    handleRemoveMeal={handleRemoveMeal}
+                  />
+                ))}
               </Reorder.Group>
 
               {/* Add Custom Meal Button */}

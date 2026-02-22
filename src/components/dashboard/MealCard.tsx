@@ -28,6 +28,7 @@ interface MealCardProps {
     onMoveDown?: () => void;
     onRename?: () => void;
     onDeleteMeal?: () => void;
+    dragControls?: any;
 }
 
 export function MealCard({
@@ -43,7 +44,8 @@ export function MealCard({
     onMoveUp,
     onMoveDown,
     onRename,
-    onDeleteMeal
+    onDeleteMeal,
+    dragControls
 }: MealCardProps) {
     const router = useRouter();
 
@@ -57,7 +59,10 @@ export function MealCard({
             <div className="flex justify-between items-start mb-5">
                 <div className="flex items-center gap-4 flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <GripVertical className="w-5 h-5 text-zinc-600 shrink-0 cursor-grab active:cursor-grabbing" />
+                        <GripVertical
+                            className="w-5 h-5 text-zinc-600 shrink-0 cursor-grab active:cursor-grabbing touch-none"
+                            onPointerDown={(e) => dragControls?.start(e)}
+                        />
                         <div className="w-12 h-12 rounded-2xl bg-linear-to-br from-fuchsia-500/20 to-blue-500/20 border border-fuchsia-500/20 flex items-center justify-center text-2xl shadow-inner shrink-0">
                             {mealEmoji}
                         </div>
