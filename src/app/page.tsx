@@ -117,9 +117,27 @@ function MealReorderItem({
   );
 }
 
-export default function Dashboard() {
+
+function DayContent({
+  userId,
+  date,
+  profile,
+  updateStreak,
+  updateMealOrder,
+  refetchProfile,
+  shareTrigger,
+  onDateChange
+}: {
+  userId: string | null;
+  date: string;
+  profile: any;
+  updateStreak: () => Promise<void>;
+  updateMealOrder: (order: string[]) => Promise<void>;
+  refetchProfile: () => Promise<void>;
+  shareTrigger: number;
+  onDateChange: (d: string) => void;
+}) {
   const router = useRouter();
-  const [userId, setUserId] = useState<string | null>(null);
   const [copying, setCopying] = useState(false);
   const [copied, setCopied] = useState(false);
   const [editingLogData, setEditingLogData] = useState<{
@@ -129,28 +147,16 @@ export default function Dashboard() {
     kcal: number;
     baseKcalPer100g: number;
   } | null>(null);
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const getLocalDateString = () => {
-    const d = new Date();
-    const offset = d.getTimezoneOffset();
-    const local = new Date(d.getTime() - offset * 60 * 1000);
-    return local.toISOString().split("T")[0];
-  };
 
-  const [selectedDate, setSelectedDate] = useState(getLocalDateString());
-  const [direction, setDirection] = useState(0);
-
-  const handleDateChange = (newDate: string) => {
-    const oldTime = new Date(selectedDate + "T12:00:00").getTime();
-    const newTime = new Date(newDate + "T12:00:00").getTime();
-    setDirection(newTime > oldTime ? 1 : -1);
-    setSelectedDate(newDate);
-  };
-
-  const { profile, updateStreak, updateMealOrder, refetchProfile } = useProfile(userId || undefined);
-  const { logs, refetch, setLogs } = useFoodLogs(userId || undefined, selectedDate);
+  const { logs, refetch, setLogs } = useFoodLogs(userId || undefined, date);
   const { toggleConsumed, toggleAllConsumed, renameMealType, deleteMealLogs } = useFoodLogActions();
-  const { glasses, addGlass, removeGlass } = useWaterLogs(userId || undefined, selectedDate);
+  const { glasses, addGlass, removeGlass } = useWaterLogs(userId || undefined, date);
+
+  useEffect(() => {
+    if (logs.length > 0 && date === new Date().toISOString().split("T")[0]) {
+      updateStreak();
+    }
+  }, [logs.length, date, updateStreak]);
 
   const [orderedMealNames, setOrderedMealNames] = useState<string[]>([]);
 
@@ -162,7 +168,6 @@ export default function Dashboard() {
     const userOrder = profile.orden_comidas || defaultOrder;
     const mealsWithLogs = Array.from(new Set(logs.map(l => l.comida_tipo)));
 
-    // Combined list of meals we WANT to see
     const targetMeals = Array.from(new Set([...userOrder, ...mealsWithLogs]))
       .sort((a, b) => {
         const indexA = userOrder.indexOf(a);
@@ -174,18 +179,14 @@ export default function Dashboard() {
       })
       .filter(m => userOrder.includes(m) || mealsWithLogs.includes(m));
 
-    // 1. If it's the first time for this date/session, initialize fully
     if (orderedMealNames.length === 0) {
       setOrderedMealNames(targetMeals);
     } else {
-      // 2. If already initialized, we need to sync additions AND removals carefully
-      // but without breaking the user's current drag position if they are dragging.
       const hasChanges =
         targetMeals.some(m => !orderedMealNames.includes(m)) ||
         orderedMealNames.some(m => !targetMeals.includes(m));
 
       if (hasChanges) {
-        // Sync additions & removals but try to preserve order
         const newOrder = [
           ...orderedMealNames.filter(m => targetMeals.includes(m)),
           ...targetMeals.filter(m => !orderedMealNames.includes(m))
@@ -193,44 +194,7 @@ export default function Dashboard() {
         setOrderedMealNames(newOrder);
       }
     }
-  }, [profile, logs, selectedDate]);
-
-  useEffect(() => {
-    async function initAuth() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setUserId(user.id);
-      } else {
-        router.push("/login");
-      }
-    }
-    initAuth();
-  }, [router]);
-
-  useEffect(() => {
-    if (logs.length > 0 && selectedDate === getLocalDateString()) {
-      updateStreak();
-    }
-  }, [logs.length, selectedDate, updateStreak]);
-
-  // Generate carousel days (3 before, 3 after selectedDate)
-  const getCarouselDays = () => {
-    const baseDate = new Date(selectedDate + "T12:00:00");
-    return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(baseDate);
-      d.setDate(baseDate.getDate() - 3 + i);
-      const iso = d.toISOString().split("T")[0];
-      return {
-        day: ["D", "L", "M", "M", "J", "V", "S"][d.getDay()],
-        date: d.getDate(),
-        full: iso
-      };
-    });
-  };
-
-  const carouselDays = getCarouselDays();
-
-  // (calculateLogMacros is now defined at top level)
+  }, [profile, logs]);
 
   const totalsPlanned = logs.reduce((acc, log) => {
     const m = calculateLogMacros(log);
@@ -254,7 +218,6 @@ export default function Dashboard() {
   }, { kcal: 0, p: 0, c: 0, g: 0 });
 
   const targetKcal = profile?.meta_kcal || 2000;
-  const totals = totalsPlanned; // Keep 'totals' for other UI components if needed
   const deficit = Math.max(0, targetKcal - totalsConsumed.kcal);
 
   const filterLogsByMeal = (type: string) =>
@@ -270,22 +233,15 @@ export default function Dashboard() {
       };
     });
 
-  const getPreviousDate = (dateStr: string) => {
-    const d = new Date(dateStr + "T12:00:00");
-    d.setDate(d.getDate() - 1);
-    return d.toISOString().split("T")[0];
-  };
-
   const handleDeleteLog = async (id: string) => {
     if (!confirm("¿Seguro que querés eliminar este registro?")) return;
-    // Optimistic delete
     const originalLogs = [...logs];
     setLogs(logs.filter(l => l.id !== id));
 
     const { error } = await supabase.from("food_logs").delete().eq("id", id);
     if (error) {
       console.error("Delete error:", error);
-      setLogs(originalLogs); // Rollback
+      setLogs(originalLogs);
       alert("Error al eliminar el registro.");
     } else {
       refetch();
@@ -295,14 +251,11 @@ export default function Dashboard() {
   const handleEditLog = (id: string) => {
     const log = logs.find(l => l.id === id);
     if (!log) return;
-
     const m = calculateLogMacros(log);
-    // Calculate base kcal per 100g
     let baseKcal = 0;
     if (log.food_items) {
       baseKcal = Number(log.food_items.kcal);
     } else if (log.recipes) {
-      // For recipes, we calculate the total kcal and divide by portions and then get the "per portion" kcal
       const totalRecipeKcal = log.recipes.recipe_ingredients.reduce((acc: number, ing: any) => {
         return acc + (ing.food_items.kcal * (ing.gramos / 100));
       }, 0);
@@ -319,43 +272,27 @@ export default function Dashboard() {
   };
 
   const handleUpdateLog = async (id: string, newGramos: number) => {
-    const { error } = await supabase
-      .from("food_logs")
-      .update({ gramos: newGramos })
-      .eq("id", id);
-
-    if (error) {
-      console.error("Update error:", error);
-      throw error;
-    }
-
+    const { error } = await supabase.from("food_logs").update({ gramos: newGramos }).eq("id", id);
+    if (error) throw error;
     refetch();
   };
 
   const handleToggleConsumed = async (id: string, currentStatus: boolean) => {
-    // Optimistic toggle
     setLogs(prev => prev.map(l => l.id === id ? { ...l, consumido: !currentStatus } : l));
-
     try {
       await toggleConsumed(id, currentStatus);
-      // Optional: refetch to be sure, but optimistic update already handled UI
     } catch (e) {
-      setLogs(prev => prev.map(l => l.id === id ? { ...l, consumido: currentStatus } : l)); // Rollback
+      setLogs(prev => prev.map(l => l.id === id ? { ...l, consumido: currentStatus } : l));
       alert("Error al actualizar el estado.");
     }
   };
 
   const handleToggleAllConsumed = async (mealType: string, status: boolean) => {
     if (!userId) return;
-    // Optimistic toggle all
     setLogs(prev => prev.map(l => l.comida_tipo === mealType ? { ...l, consumido: status } : l));
-
     try {
-      await toggleAllConsumed(userId, selectedDate, mealType, status);
-      // Optional: refetch
+      await toggleAllConsumed(userId, date, mealType, status);
     } catch (e) {
-      // Rollback is harder here because we don't know the exact previous statuses without cloning everything
-      // but usually the refetch will fix it eventually if it fails.
       refetch();
       alert("Error al actualizar la comida completa.");
     }
@@ -365,9 +302,10 @@ export default function Dashboard() {
     if (!userId || copying) return;
     setCopying(true);
     try {
-      const prevDate = getPreviousDate(selectedDate);
+      const d = new Date(date + "T12:00:00");
+      d.setDate(d.getDate() - 1);
+      const prevDate = d.toISOString().split("T")[0];
 
-      // Fetch previous day's logs
       const { data: prevLogs, error: fetchError } = await supabase
         .from("food_logs")
         .select("food_id, comida_tipo, gramos")
@@ -375,26 +313,21 @@ export default function Dashboard() {
         .eq("fecha", prevDate);
 
       if (fetchError || !prevLogs || prevLogs.length === 0) {
-        alert("No hay registros del d\u00eda anterior para copiar.");
+        alert("No hay registros del día anterior para copiar.");
         setCopying(false);
         return;
       }
 
-      // Insert copies for the current date
       const newLogs = prevLogs.map(log => ({
         user_id: userId,
         food_id: log.food_id,
         comida_tipo: log.comida_tipo,
         gramos: log.gramos,
-        fecha: selectedDate
+        fecha: date
       }));
 
-      const { error: insertError } = await supabase
-        .from("food_logs")
-        .insert(newLogs);
-
+      const { error: insertError } = await supabase.from("food_logs").insert(newLogs);
       if (insertError) {
-        console.error("Error copying logs:", insertError);
         alert("Error al copiar la dieta.");
       } else {
         setCopied(true);
@@ -409,46 +342,42 @@ export default function Dashboard() {
   };
 
   const handleShareDay = async () => {
-    const el = document.getElementById("share-summary-card");
+    const el = document.getElementById(`share-summary-card-${date}`);
     if (!el) return;
-
     try {
       const dataUrl = await toPng(el, { quality: 0.95 });
-
-      // Check if Web Share API is available for files
       if (navigator.share && navigator.canShare) {
         const blob = await (await fetch(dataUrl)).blob();
-        const file = new File([blob], `fitia-resumen-${selectedDate}.png`, { type: 'image/png' });
-
+        const file = new File([blob], `fitia-resumen-${date}.png`, { type: 'image/png' });
         if (navigator.canShare({ files: [file] })) {
           await navigator.share({
             files: [file],
-            title: `Mi nutrición del ${selectedDate}`,
+            title: `Mi nutrición del ${date}`,
             text: 'Resumen generado con Fitia Personal'
           });
           return;
         }
       }
-
-      // Fallback: Download the image
       const link = document.createElement('a');
-      link.download = `fitia-resumen-${selectedDate}.png`;
+      link.download = `fitia-resumen-${date}.png`;
       link.href = dataUrl;
       link.click();
     } catch (err: any) {
-      // Ignore cancellations
       if (err.name === 'AbortError') return;
-
-      console.error("Error generating image:", err);
       alert("No se pudo generar la imagen.");
     }
   };
+
+  useEffect(() => {
+    if (shareTrigger > 0) {
+      handleShareDay();
+    }
+  }, [shareTrigger]);
 
   const handleMoveMeal = async (meal: string, direction: 'up' | 'down') => {
     const list = [...orderedMealNames];
     const index = list.indexOf(meal);
     if (index === -1) return;
-
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     if (targetIndex >= 0 && targetIndex < list.length) {
       [list[index], list[targetIndex]] = [list[targetIndex], list[index]];
@@ -466,73 +395,178 @@ export default function Dashboard() {
 
   const handleRemoveMeal = async (meal: string) => {
     if (!profile || !userId) return;
-    const confirmed = confirm(`¿Estás seguro de que quieres ocultar "${meal}"? Esta categoría dejará de aparecer en tu dashboard a menos que tenga alimentos registrados.`);
-    if (!confirmed) return;
-
-    // Optimistic update for UI state
+    if (!confirm(`¿Estás seguro de que quieres ocultar "${meal}"?`)) return;
     const originalUIOrder = [...orderedMealNames];
     setOrderedMealNames(prev => prev.filter(m => m !== meal));
-
     try {
-      // 1. Delete logs for today
-      await deleteMealLogs(userId, selectedDate, meal);
-
-      // 2. Remove from custom profile order
-      const defaultOrder = ["Desayuno", "Snack 1", "Almuerzo", "Merienda", "Snack 2", "Cena"];
-      const currentProfileOrder = profile.orden_comidas || defaultOrder;
-      const nextProfileOrder = currentProfileOrder.filter((m: string) => m !== meal);
-
+      await deleteMealLogs(userId, date, meal);
+      const nextProfileOrder = (profile.orden_comidas || []).filter((m: string) => m !== meal);
       await updateMealOrder(nextProfileOrder);
-
-      // 3. Refresh to sync with DB state
       await refetchProfile();
       refetch();
-    } catch (err: any) {
-      console.error("Error deleting meal:", err);
-      // Rollback UI
+    } catch (err) {
       setOrderedMealNames(originalUIOrder);
-      alert(`No se pudo eliminar la comida: ${err.message || 'Error desconocido'}`);
+      alert(`No se pudo eliminar la comida.`);
     }
   };
 
   const handleRenameMeal = async (oldName: string) => {
     const newName = prompt(`Renombrar "${oldName}" a:`, oldName);
     if (!newName || !newName.trim() || newName === oldName) return;
-
-    if (!profile || !userId) return;
     const trimmedNewName = newName.trim();
-
-    // Optimistic update for UI
     const originalUIOrder = [...orderedMealNames];
     setOrderedMealNames(prev => prev.map(m => m === oldName ? trimmedNewName : m));
-
     try {
-      // 1. Update all logs for today
-      await renameMealType(userId, selectedDate, oldName, trimmedNewName);
-
-      // 2. Update profile order preference
-      const defaultOrder = ["Desayuno", "Snack 1", "Almuerzo", "Merienda", "Snack 2", "Cena"];
-      const currentOrder = profile.orden_comidas || defaultOrder;
-      const nextOrder = currentOrder.map((m: string) => m === oldName ? trimmedNewName : m);
-
-      if (!nextOrder.includes(trimmedNewName)) {
-        nextOrder.push(trimmedNewName);
-      }
-
+      await renameMealType(userId!, date, oldName, trimmedNewName);
+      const nextOrder = (profile.orden_comidas || []).map((m: string) => m === oldName ? trimmedNewName : m);
+      if (!nextOrder.includes(trimmedNewName)) nextOrder.push(trimmedNewName);
       await updateMealOrder(nextOrder);
       await refetchProfile();
       refetch();
-    } catch (err: any) {
-      console.error("Error renaming meal:", err);
-      // Rollback UI
+    } catch (err) {
       setOrderedMealNames(originalUIOrder);
-      alert(`No se pudo renombrar la comida: ${err.message || 'Error desconocido'}`);
+      alert(`No se pudo renombrar la comida.`);
     }
+  };
+
+
+  return (
+    <div className="w-full pb-24">
+      <section className="px-6 py-4">
+        <div className="glass-card overflow-hidden">
+          <CalorieArc current={Math.round(totalsConsumed.kcal)} planned={Math.round(totalsPlanned.kcal)} target={targetKcal} />
+          <div className="flex px-2 pb-8">
+            <MacroBar label="Proteínas" current={totalsConsumed.p} planned={totalsPlanned.p} target={profile?.meta_p || 150} />
+            <MacroBar label="Carbs" current={totalsConsumed.c} planned={totalsPlanned.c} target={profile?.meta_c || 200} />
+            <MacroBar label="Grasas" current={totalsConsumed.g} planned={totalsPlanned.g} target={profile?.meta_g || 60} />
+          </div>
+          <div className="px-6 pb-6 pt-2">
+            <button className="w-full py-4 text-sm font-bold tracking-tight rounded-2xl border border-fuchsia-500/15 relative overflow-hidden group">
+              <div className="absolute inset-0 bg-linear-to-r from-fuchsia-500/15 via-blue-500/10 to-fuchsia-500/15 opacity-60" />
+              <span className="relative z-10 bg-linear-to-r from-fuchsia-300 to-blue-300 bg-clip-text text-transparent">Terminar Día</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section className="px-6 py-2">
+        <Reorder.Group axis="y" values={orderedMealNames} onReorder={handleReorderMeals} className="space-y-0">
+          {orderedMealNames.map((meal, index) => (
+            <MealReorderItem
+              key={meal}
+              meal={meal}
+              index={index}
+              orderedMealNames={orderedMealNames}
+              logs={logs}
+              selectedDate={date}
+              handleDeleteLog={handleDeleteLog}
+              handleEditLog={handleEditLog}
+              handleToggleConsumed={handleToggleConsumed}
+              handleToggleAllConsumed={handleToggleAllConsumed}
+              handleMoveMeal={handleMoveMeal}
+              handleRenameMeal={handleRenameMeal}
+              handleRemoveMeal={handleRemoveMeal}
+            />
+          ))}
+        </Reorder.Group>
+
+        <button
+          onClick={() => {
+            const name = prompt("Nombre de la nueva comida:");
+            if (name && name.trim()) {
+              router.push(`/add-food?date=${date}&meal=${encodeURIComponent(name.trim())}`);
+            }
+          }}
+          className="w-full mb-6 py-4 glass-card-subtle flex items-center justify-center gap-3 active:scale-[0.98] transition-all group border-dashed border-fuchsia-500/20"
+        >
+          <Plus className="w-5 h-5 text-fuchsia-400 group-hover:rotate-90 transition-transform" />
+          <span className="text-sm font-bold text-zinc-400 group-hover:text-fuchsia-300 transition-colors">Agregar otra comida</span>
+        </button>
+
+        {logs.length === 0 && (
+          <button onClick={handleCopyPreviousDay} disabled={copying} className="w-full mb-6 py-5 glass-card flex items-center justify-center gap-3 active:scale-[0.98] transition-all group">
+            {copied ? (
+              <span className="text-sm font-bold text-fuchsia-400">¡Dieta copiada!</span>
+            ) : (
+              <span className="text-sm font-bold bg-gradient-to-r from-violet-400 to-blue-400 bg-clip-text text-transparent">Copiar dieta anterior</span>
+            )}
+          </button>
+        )}
+
+        <WaterTracker glasses={glasses} target={3.3} onAddGlass={addGlass} onRemoveGlass={removeGlass} />
+      </section>
+
+      {userId && (
+        <AISuggestion deficit={deficit} macros={{ p: 20, c: 20, g: 5 }} userId={userId} date={date} onPlanApplied={refetch} />
+      )}
+      <EditLogModal isOpen={!!editingLogData} onClose={() => setEditingLogData(null)} log={editingLogData} onSave={handleUpdateLog} />
+
+      <div className="fixed -left-[9999px] top-0 pointer-events-none overflow-hidden h-0">
+        <div id={`share-summary-card-${date}`}>
+          <ShareSummary
+            date={date}
+            targetKcal={targetKcal}
+            totalsConsumed={totalsConsumed}
+            meals={Array.from(new Set(logs.map(l => l.comida_tipo))).map(meal => ({
+              type: meal,
+              items: filterLogsByMeal(meal)
+            }))}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function Dashboard() {
+  const router = useRouter();
+  const [userId, setUserId] = useState<string | null>(null);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [shareTrigger, setShareTrigger] = useState(0);
+
+  const getLocalDateString = () => {
+    const d = new Date();
+    const offset = d.getTimezoneOffset();
+    const local = new Date(d.getTime() - offset * 60 * 1000);
+    return local.toISOString().split("T")[0];
+  };
+
+  const [selectedDate, setSelectedDate] = useState(getLocalDateString());
+  const [direction, setDirection] = useState(0);
+
+  const { profile, updateStreak, updateMealOrder, refetchProfile } = useProfile(userId || undefined);
+
+  useEffect(() => {
+    async function initAuth() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setUserId(user.id);
+      else router.push("/login");
+    }
+    initAuth();
+  }, [router]);
+
+  const handleDateChange = (newDate: string) => {
+    const oldTime = new Date(selectedDate + "T12:00:00").getTime();
+    const newTime = new Date(newDate + "T12:00:00").getTime();
+    setDirection(newTime > oldTime ? 1 : -1);
+    setSelectedDate(newDate);
+  };
+
+  const getCarouselDays = () => {
+    const baseDate = new Date(selectedDate + "T12:00:00");
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(baseDate);
+      d.setDate(baseDate.getDate() - 3 + i);
+      return {
+        day: ["D", "L", "M", "M", "J", "V", "S"][d.getDay()],
+        date: d.getDate(),
+        full: d.toISOString().split("T")[0]
+      };
+    });
   };
 
   return (
     <main className="min-h-screen pb-32 overflow-x-hidden">
-      {/* Header */}
       <header className="px-6 pt-12 pb-10 border-b border-fuchsia-500/10">
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-3">
@@ -540,18 +574,14 @@ export default function Dashboard() {
               <span className="text-xs text-fuchsia-400/80 font-black">•••</span>
             </div>
             <button
-              onClick={handleShareDay}
+              onClick={() => setShareTrigger(prev => prev + 1)}
               className="w-11 h-11 rounded-full bg-blue-500/5 border border-blue-500/10 flex items-center justify-center shadow-inner active:scale-95 transition-transform group"
-              title="Compartir Resumen"
             >
-              <Camera className="w-5 h-5 text-blue-400/80 group-hover:text-blue-400 transition-colors" />
+              <Camera className="w-5 h-5 text-blue-400/80 group-hover:text-blue-400" />
             </button>
           </div>
-          <button
-            onClick={() => setIsCalendarOpen(true)}
-            className="flex items-center gap-2 font-bold text-lg active:scale-95 transition-transform"
-          >
-            <span className="bg-linear-to-r from-fuchsia-300 to-blue-300 bg-clip-text text-transparent">📅 {selectedDate === new Date().toISOString().split("T")[0] ? "Hoy" : selectedDate}</span>
+          <button onClick={() => setIsCalendarOpen(true)} className="flex items-center gap-2 font-bold text-lg active:scale-95 transition-transform">
+            <span className="bg-linear-to-r from-fuchsia-300 to-blue-300 bg-clip-text text-transparent">📅 {selectedDate === getLocalDateString() ? "Hoy" : selectedDate}</span>
           </button>
           <div className="flex items-center gap-1.5 bg-fuchsia-500/10 px-3 py-1.5 rounded-full border border-fuchsia-500/15">
             <span className="text-fuchsia-400 text-sm">🔥 {profile?.racha_actual || 0}</span>
@@ -567,26 +597,14 @@ export default function Dashboard() {
               key={selectedDate}
               custom={direction}
               variants={{
-                enter: (direction: number) => ({
-                  x: direction > 0 ? "100%" : direction < 0 ? "-100%" : 0,
-                  opacity: 0
-                }),
-                center: {
-                  x: 0,
-                  opacity: 1
-                },
-                exit: (direction: number) => ({
-                  x: direction < 0 ? "100%" : direction > 0 ? "-100%" : 0,
-                  opacity: 0
-                })
+                enter: (d: number) => ({ x: d > 0 ? "100%" : d < 0 ? "-100%" : 0, opacity: 0 }),
+                center: { x: 0, opacity: 1 },
+                exit: (d: number) => ({ x: d < 0 ? "100%" : d > 0 ? "-100%" : 0, opacity: 0 })
               }}
               initial="enter"
               animate="center"
               exit="exit"
-              transition={{
-                x: { type: "spring", stiffness: 300, damping: 30 },
-                opacity: { duration: 0.2 }
-              }}
+              transition={{ x: { type: "spring", stiffness: 300, damping: 30 }, opacity: { duration: 0.2 } }}
               drag="x"
               dragConstraints={{ left: 0, right: 0 }}
               dragElastic={0.5}
@@ -603,41 +621,12 @@ export default function Dashboard() {
               }}
               className="absolute inset-x-2 flex justify-between items-center cursor-grab active:cursor-grabbing pb-4"
             >
-              {getCarouselDays().map((item, i) => {
+              {getCarouselDays().map((item) => {
                 const isSelected = selectedDate === item.full;
-                const isToday = item.full === new Date().toISOString().split("T")[0];
-
                 return (
-                  <button
-                    key={item.full}
-                    onClick={() => handleDateChange(item.full)}
-                    className="flex flex-col items-center gap-2 focus:outline-none group shrink-0 w-[14.28%]"
-                  >
-                    <span className={cn(
-                      "text-[10px] font-bold transition-colors uppercase",
-                      isSelected ? "text-fuchsia-400" : "text-zinc-500 group-hover:text-fuchsia-300"
-                    )}>
-                      {item.day}
-                    </span>
-                    <div className={cn(
-                      "w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all relative",
-                      isSelected
-                        ? "bg-linear-to-r from-fuchsia-500 to-blue-500 text-white scale-110 shadow-lg shadow-fuchsia-500/30 ring-2 ring-fuchsia-400/20"
-                        : "text-white hover:bg-fuchsia-500/10"
-                    )}>
-                      {item.date}
-                      {isToday && !isSelected && (
-                        <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full border border-black" />
-                      )}
-                    </div>
-                    <div className={cn(
-                      "w-1 h-1 rounded-full transition-all",
-                      item.full < new Date().toISOString().split("T")[0]
-                        ? "bg-fuchsia-500/40"
-                        : isToday
-                          ? "bg-blue-400 shadow-[0_0_8px_rgba(59,130,246,0.5)]"
-                          : "bg-zinc-800"
-                    )} />
+                  <button key={item.full} onClick={() => handleDateChange(item.full)} className="flex flex-col items-center gap-2 focus:outline-none group shrink-0 w-[14.28%]">
+                    <span className={cn("text-[10px] font-bold uppercase", isSelected ? "text-fuchsia-400" : "text-zinc-500")}>{item.day}</span>
+                    <div className={cn("w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all", isSelected ? "bg-linear-to-r from-fuchsia-500 to-blue-500 text-white scale-110 shadow-lg shadow-fuchsia-500/30" : "text-white hover:bg-fuchsia-500/10")}>{item.date}</div>
                   </button>
                 );
               })}
@@ -652,26 +641,14 @@ export default function Dashboard() {
             key={selectedDate}
             custom={direction}
             variants={{
-              enter: (direction: number) => ({
-                x: direction > 0 ? "100%" : direction < 0 ? "-100%" : 0,
-                opacity: 0.4
-              }),
-              center: {
-                x: 0,
-                opacity: 1
-              },
-              exit: (direction: number) => ({
-                x: direction < 0 ? "100%" : direction > 0 ? "-100%" : 0,
-                opacity: 0.4
-              })
+              enter: (d: number) => ({ x: d > 0 ? "100%" : d < 0 ? "-100%" : 0, opacity: 0.4 }),
+              center: { x: 0, opacity: 1 },
+              exit: (d: number) => ({ x: d < 0 ? "100%" : d > 0 ? "-100%" : 0, opacity: 0.4 })
             }}
             initial="enter"
             animate="center"
             exit="exit"
-            transition={{
-              x: { type: "spring", stiffness: 250, damping: 32, mass: 0.8 },
-              opacity: { duration: 0.3 }
-            }}
+            transition={{ x: { type: "spring", stiffness: 250, damping: 32, mass: 0.8 }, opacity: { duration: 0.3 } }}
             drag="x"
             dragConstraints={{ left: 0, right: 0 }}
             dragElastic={1}
@@ -688,154 +665,24 @@ export default function Dashboard() {
                 handleDateChange(d.toISOString().split("T")[0]);
               }
             }}
-            className="w-full will-change-transform cursor-grab active:cursor-grabbing pb-24"
+            className="w-full absolute inset-0"
           >
-
-            {/* Progress Section */}
-            <section className="px-6 py-4">
-              <div className="glass-card overflow-hidden">
-                <CalorieArc
-                  current={Math.round(totalsConsumed.kcal)}
-                  planned={Math.round(totalsPlanned.kcal)}
-                  target={targetKcal}
-                />
-
-                <div className="flex px-2 pb-8">
-                  <MacroBar label="Proteínas" current={totalsConsumed.p} planned={totalsPlanned.p} target={profile?.meta_p || 150} />
-                  <MacroBar label="Carbs" current={totalsConsumed.c} planned={totalsPlanned.c} target={profile?.meta_c || 200} />
-                  <MacroBar label="Grasas" current={totalsConsumed.g} planned={totalsPlanned.g} target={profile?.meta_g || 60} />
-                </div>
-
-                <div className="px-6 pb-6 pt-2">
-                  <button className="w-full py-4 text-sm font-bold tracking-tight rounded-2xl border border-fuchsia-500/15 relative overflow-hidden group">
-                    <div className="absolute inset-0 bg-linear-to-r from-fuchsia-500/15 via-blue-500/10 to-fuchsia-500/15 opacity-60" />
-                    <span className="relative z-10 transition-transform group-active:scale-95 bg-linear-to-r from-fuchsia-300 to-blue-300 bg-clip-text text-transparent">Terminar Día</span>
-                  </button>
-                </div>
-              </div>
-            </section>
-
-            {/* Meals */}
-            <section className="px-6 py-2">
-              <Reorder.Group
-                axis="y"
-                values={orderedMealNames}
-                onReorder={handleReorderMeals}
-                className="space-y-0"
-              >
-                {orderedMealNames.map((meal, index) => (
-                  <MealReorderItem
-                    key={meal}
-                    meal={meal}
-                    index={index}
-                    orderedMealNames={orderedMealNames}
-                    logs={logs}
-                    selectedDate={selectedDate}
-                    handleDeleteLog={handleDeleteLog}
-                    handleEditLog={handleEditLog}
-                    handleToggleConsumed={handleToggleConsumed}
-                    handleToggleAllConsumed={handleToggleAllConsumed}
-                    handleMoveMeal={handleMoveMeal}
-                    handleRenameMeal={handleRenameMeal}
-                    handleRemoveMeal={handleRemoveMeal}
-                  />
-                ))}
-              </Reorder.Group>
-
-              {/* Add Custom Meal Button */}
-              <button
-                onClick={() => {
-                  const name = prompt("Nombre de la nueva comida (ej: Snack 2, Pre-Entreno, Merienda):");
-                  if (name && name.trim()) {
-                    router.push(`/add-food?date=${selectedDate}&meal=${encodeURIComponent(name.trim())}`);
-                  }
-                }}
-                className="w-full mb-6 py-4 glass-card-subtle flex items-center justify-center gap-3 active:scale-[0.98] transition-all group border-dashed border-fuchsia-500/20"
-              >
-                <Plus className="w-5 h-5 text-fuchsia-400 transition-transform group-hover:rotate-90" />
-                <span className="text-sm font-bold text-zinc-400 group-hover:text-fuchsia-300 transition-colors">
-                  Agregar otra comida
-                </span>
-              </button>
-
-              {logs.length === 0 && (
-                <button
-                  onClick={handleCopyPreviousDay}
-                  disabled={copying}
-                  className="w-full mb-6 py-5 glass-card flex items-center justify-center gap-3 active:scale-[0.98] transition-all group"
-                >
-                  {copied ? (
-                    <>
-                      <Check className="w-5 h-5 text-fuchsia-400" />
-                      <span className="text-sm font-bold text-fuchsia-400">¡Dieta copiada!</span>
-                    </>
-                  ) : copying ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-fuchsia-500 border-t-transparent rounded-full animate-spin" />
-                      <span className="text-sm font-bold text-zinc-400">Copiando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-5 h-5 text-violet-400 group-hover:scale-110 transition-transform" />
-                      <span className="text-sm font-bold bg-gradient-to-r from-violet-400 to-blue-400 bg-clip-text text-transparent">
-                        Copiar dieta del d\u00eda anterior
-                      </span>
-                    </>
-                  )}
-                </button>
-              )}
-
-              <WaterTracker glasses={glasses} target={3.3} onAddGlass={addGlass} onRemoveGlass={removeGlass} />
-            </section>
-
-            <AISuggestion
-              deficit={deficit}
-              macros={{ p: 20, c: 20, g: 5 }}
-              userId={userId || undefined}
+            <DayContent
+              userId={userId}
               date={selectedDate}
-              onPlanApplied={refetch}
+              profile={profile}
+              updateStreak={updateStreak}
+              updateMealOrder={updateMealOrder}
+              refetchProfile={refetchProfile}
+              shareTrigger={shareTrigger}
+              onDateChange={handleDateChange}
             />
-
-            <EditLogModal
-              isOpen={!!editingLogData}
-              onClose={() => setEditingLogData(null)}
-              log={editingLogData}
-              onSave={handleUpdateLog}
-            />
-
           </motion.div>
         </AnimatePresence>
       </div>
 
-      <MonthlyCalendar
-        isOpen={isCalendarOpen}
-        onClose={() => setIsCalendarOpen(false)}
-        selectedDate={selectedDate}
-        onDateSelect={setSelectedDate}
-      />
-
+      <MonthlyCalendar isOpen={isCalendarOpen} onClose={() => setIsCalendarOpen(false)} selectedDate={selectedDate} onDateSelect={setSelectedDate} />
       <BottomNav />
-
-      {/* Hidden Share Summary for Image Generation */}
-      <div className="fixed -left-[9999px] top-0 pointer-events-none overflow-hidden h-0">
-        <ShareSummary
-          date={selectedDate}
-          targetKcal={targetKcal}
-          totalsConsumed={totalsConsumed}
-          meals={(() => {
-            const defaultMeals = ["Desayuno", "Almuerzo", "Cena", "Snack 1"];
-            const customMealsFromLogs = logs
-              .map(l => l.comida_tipo)
-              .filter(m => !defaultMeals.includes(m));
-            const allMeals = [...defaultMeals, ...Array.from(new Set(customMealsFromLogs))];
-
-            return allMeals.map(meal => ({
-              type: meal,
-              items: filterLogsByMeal(meal)
-            }));
-          })()}
-        />
-      </div>
     </main>
   );
 }
