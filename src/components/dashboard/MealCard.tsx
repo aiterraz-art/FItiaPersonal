@@ -68,15 +68,19 @@ export function MealCard({
                 </div>
                 <div
                     className="flex flex-col items-end gap-2"
+                    onPointerDownCapture={(e) => e.stopPropagation()}
                     onPointerDown={(e) => e.stopPropagation()}
                     onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
                 >
                     <div className="flex items-center gap-1">
                         {onMoveUp && (
                             <button
                                 type="button"
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onTouchStart={(e) => e.stopPropagation()}
                                 onClick={(e) => { e.stopPropagation(); onMoveUp(); }}
-                                className="p-2.5 rounded-xl bg-zinc-800/40 border border-white/5 text-zinc-400 active:bg-zinc-700 active:text-white transition-all active:scale-95"
+                                className="p-2.5 rounded-xl bg-zinc-800/40 border border-white/5 text-zinc-400 active:bg-zinc-700 active:text-white transition-all active:scale-95 touch-manipulation"
                             >
                                 <ArrowUp className="w-4 h-4" />
                             </button>
@@ -84,8 +88,10 @@ export function MealCard({
                         {onMoveDown && (
                             <button
                                 type="button"
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onTouchStart={(e) => e.stopPropagation()}
                                 onClick={(e) => { e.stopPropagation(); onMoveDown(); }}
-                                className="p-2.5 rounded-xl bg-zinc-800/40 border border-white/5 text-zinc-400 active:bg-zinc-700 active:text-white transition-all active:scale-95"
+                                className="p-2.5 rounded-xl bg-zinc-800/40 border border-white/5 text-zinc-400 active:bg-zinc-700 active:text-white transition-all active:scale-95 touch-manipulation"
                             >
                                 <ArrowDown className="w-4 h-4" />
                             </button>
@@ -93,8 +99,10 @@ export function MealCard({
                         {onRename && (
                             <button
                                 type="button"
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onTouchStart={(e) => e.stopPropagation()}
                                 onClick={(e) => { e.stopPropagation(); onRename(); }}
-                                className="p-2.5 rounded-xl bg-zinc-800/40 border border-white/5 text-zinc-400 active:bg-zinc-700 active:text-white transition-all active:scale-95"
+                                className="p-2.5 rounded-xl bg-zinc-800/40 border border-white/5 text-zinc-400 active:bg-zinc-700 active:text-white transition-all active:scale-95 touch-manipulation"
                             >
                                 <Pencil className="w-4 h-4" />
                             </button>
@@ -102,8 +110,10 @@ export function MealCard({
                         {onDeleteMeal && (
                             <button
                                 type="button"
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onTouchStart={(e) => e.stopPropagation()}
                                 onClick={(e) => { e.stopPropagation(); onDeleteMeal(); }}
-                                className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 active:bg-red-500 active:text-white transition-all active:scale-95"
+                                className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 active:bg-red-500 active:text-white transition-all active:scale-95 touch-manipulation"
                             >
                                 <Trash2 className="w-4 h-4" />
                             </button>

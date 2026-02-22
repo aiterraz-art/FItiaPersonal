@@ -385,15 +385,23 @@ export default function Dashboard() {
 
     try {
       if (userId) {
+        const trimmedNewName = newName.trim();
         // 1. Update all logs for today
-        await renameMealType(userId, selectedDate, oldName, newName.trim());
+        await renameMealType(userId, selectedDate, oldName, trimmedNewName);
 
-        // 2. Update profile order if it exists
-        if (profile?.orden_comidas) {
-          const nextOrder = profile.orden_comidas.map((m: string) => m === oldName ? newName.trim() : m);
-          await updateMealOrder(nextOrder);
+        // 2. Update profile order preference
+        const defaultOrder = ["Desayuno", "Snack 1", "Almuerzo", "Merienda", "Snack 2", "Cena"];
+        const currentOrder = profile?.orden_comidas || defaultOrder;
+        const nextOrder = currentOrder.map((m: string) => m === oldName ? trimmedNewName : m);
+
+        // If the old name wasn't in the order (unlikely for defaults but possible for weird edge cases)
+        // ensure the new name IS in the order now.
+        if (!nextOrder.includes(trimmedNewName)) {
+          nextOrder.push(trimmedNewName);
         }
 
+        await updateMealOrder(nextOrder);
+        await refetchProfile();
         refetch();
       }
     } catch (err) {
