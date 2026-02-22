@@ -253,6 +253,17 @@ function AddFoodContent() {
         }
     };
 
+    const handleDeleteRecipe = async (id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!confirm("¿Seguro que querés eliminar esta receta?")) return;
+        const { error } = await supabase.from("recipes").delete().eq("id", id);
+        if (error) {
+            alert("Error al eliminar la receta");
+        } else {
+            setResults(prev => prev.filter(r => r.id !== id));
+        }
+    };
+
     const handleAdd = async () => {
         try {
             let { data: { user } } = await supabase.auth.getUser();
@@ -562,6 +573,14 @@ function AddFoodContent() {
                                                 )}>
                                                     {food.isAI ? '✨' : '+'}
                                                 </div>
+                                                {food.type === 'recipe' && (
+                                                    <button
+                                                        onClick={(e) => handleDeleteRecipe(food.id, e)}
+                                                        className="absolute right-14 top-1/2 -translate-y-1/2 p-2 rounded-lg bg-red-500/10 text-red-500 opacity-0 group-hover:opacity-100 transition-all active:scale-90"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                )}
                                             </button>
                                         </motion.div>
                                     </div>

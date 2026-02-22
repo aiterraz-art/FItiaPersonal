@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRecipes, useProfile } from "@/hooks/useSupabase";
 import { Plus, BookOpen, ChevronRight, Loader2, Trash2 } from "lucide-react";
 import Link from "next/link";
@@ -7,9 +8,19 @@ import { supabase } from "@/lib/supabase";
 import { BottomNav } from "@/components/navigation/BottomNav";
 
 export default function RecipesPage() {
-    const userId = "demo-user"; // Using demo user as per existing pattern
-    const { recipes, loading, refetch } = useRecipes(userId);
-    const { profile } = useProfile(userId);
+    const [userId, setUserId] = useState<string | null>(null);
+    const { recipes, loading: recipesLoading, refetch } = useRecipes(userId || undefined);
+    const { profile } = useProfile(userId || undefined);
+
+    useEffect(() => {
+        async function getAuth() {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) setUserId(user.id);
+        }
+        getAuth();
+    }, []);
+
+    const loading = !userId || recipesLoading;
 
     const calculatePortionMacros = (recipe: any) => {
         const ingredients = recipe.recipe_ingredients || [];
