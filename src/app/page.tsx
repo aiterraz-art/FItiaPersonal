@@ -60,22 +60,22 @@ export default function Dashboard() {
     }
   }, [logs.length, selectedDate, updateStreak]);
 
-  // Generate current week
-  const getWeekDays = () => {
-    const now = new Date();
-    const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay() + 1)); // Monday
+  // Generate carousel days (3 before, 3 after selectedDate)
+  const getCarouselDays = () => {
+    const baseDate = new Date(selectedDate + "T12:00:00");
     return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(startOfWeek);
-      d.setDate(startOfWeek.getDate() + i);
+      const d = new Date(baseDate);
+      d.setDate(baseDate.getDate() - 3 + i);
+      const iso = d.toISOString().split("T")[0];
       return {
-        day: ["L", "M", "M", "J", "V", "S", "D"][i],
+        day: ["D", "L", "M", "M", "J", "V", "S"][d.getDay()],
         date: d.getDate(),
-        full: d.toISOString().split("T")[0]
+        full: iso
       };
     });
   };
 
-  const weekDays = getWeekDays();
+  const carouselDays = getCarouselDays();
 
   // Calculate Totals helper
   const calculateLogMacros = (log: any) => {
@@ -300,26 +300,65 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="flex justify-between px-2">
-          {weekDays.map((item, i) => (
-            <button
-              key={i}
-              onClick={() => setSelectedDate(item.full)}
-              className="flex flex-col items-center gap-2 focus:outline-none group"
-            >
-              <span className="text-[10px] text-zinc-500 font-bold group-hover:text-fuchsia-300 transition-colors uppercase">{item.day}</span>
-              <div className={cn(
-                "w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all",
-                selectedDate === item.full ? "bg-linear-to-r from-fuchsia-500 to-blue-500 text-white scale-110 shadow-lg shadow-fuchsia-500/30" : "text-white hover:bg-fuchsia-500/10"
-              )}>
-                {item.date}
-              </div>
-              <div className={cn(
-                "w-1.5 h-1.5 rounded-full transition-all",
-                item.full < new Date().toISOString().split("T")[0] ? "bg-fuchsia-400" : item.full === new Date().toISOString().split("T")[0] ? "bg-blue-400 animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.5)]" : "bg-zinc-800"
-              )} />
-            </button>
-          ))}
+        <div className="relative overflow-visible px-2">
+          <motion.div
+            drag="x"
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.5}
+            onDragEnd={(_, info) => {
+              if (info.offset.x > 50) {
+                // Swipe right -> Previous day
+                const d = new Date(selectedDate + "T12:00:00");
+                d.setDate(d.getDate() - 1);
+                setSelectedDate(d.toISOString().split("T")[0]);
+              } else if (info.offset.x < -50) {
+                // Swipe left -> Next day
+                const d = new Date(selectedDate + "T12:00:00");
+                d.setDate(d.getDate() + 1);
+                setSelectedDate(d.toISOString().split("T")[0]);
+              }
+            }}
+            className="flex justify-between items-center cursor-grab active:cursor-grabbing"
+          >
+            {carouselDays.map((item, i) => {
+              const isSelected = selectedDate === item.full;
+              const isToday = item.full === new Date().toISOString().split("T")[0];
+
+              return (
+                <button
+                  key={item.full}
+                  onClick={() => setSelectedDate(item.full)}
+                  className="flex flex-col items-center gap-2 focus:outline-none group shrink-0 w-[14.28%]"
+                >
+                  <span className={cn(
+                    "text-[10px] font-bold transition-colors uppercase",
+                    isSelected ? "text-fuchsia-400" : "text-zinc-500 group-hover:text-fuchsia-300"
+                  )}>
+                    {item.day}
+                  </span>
+                  <div className={cn(
+                    "w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all relative",
+                    isSelected
+                      ? "bg-linear-to-r from-fuchsia-500 to-blue-500 text-white scale-110 shadow-lg shadow-fuchsia-500/30 ring-2 ring-fuchsia-400/20"
+                      : "text-white hover:bg-fuchsia-500/10"
+                  )}>
+                    {item.date}
+                    {isToday && !isSelected && (
+                      <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full border border-black" />
+                    )}
+                  </div>
+                  <div className={cn(
+                    "w-1 h-1 rounded-full transition-all",
+                    item.full < new Date().toISOString().split("T")[0]
+                      ? "bg-fuchsia-500/40"
+                      : isToday
+                        ? "bg-blue-400 shadow-[0_0_8px_rgba(59,130,246,0.5)]"
+                        : "bg-zinc-800"
+                  )} />
+                </button>
+              );
+            })}
+          </motion.div>
         </div>
       </header>
 
