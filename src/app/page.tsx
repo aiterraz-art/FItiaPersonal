@@ -50,7 +50,7 @@ export default function Dashboard() {
   };
 
   const { profile, updateStreak, updateMealOrder, refetchProfile } = useProfile(userId || undefined);
-  const { logs, refetch } = useFoodLogs(userId || undefined, selectedDate);
+  const { logs, refetch, setLogs } = useFoodLogs(userId || undefined, selectedDate);
   const { toggleConsumed, toggleAllConsumed, renameMealType, deleteMealLogs } = useFoodLogActions();
   const { glasses, addGlass, removeGlass } = useWaterLogs(userId || undefined, selectedDate);
 
@@ -175,9 +175,14 @@ export default function Dashboard() {
 
   const handleDeleteLog = async (id: string) => {
     if (!confirm("¿Seguro que querés eliminar este registro?")) return;
+    // Optimistic delete
+    const originalLogs = [...logs];
+    setLogs(logs.filter(l => l.id !== id));
+
     const { error } = await supabase.from("food_logs").delete().eq("id", id);
     if (error) {
       console.error("Delete error:", error);
+      setLogs(originalLogs); // Rollback
       alert("Error al eliminar el registro.");
     } else {
       refetch();
@@ -225,20 +230,30 @@ export default function Dashboard() {
   };
 
   const handleToggleConsumed = async (id: string, currentStatus: boolean) => {
+    // Optimistic toggle
+    setLogs(prev => prev.map(l => l.id === id ? { ...l, consumido: !currentStatus } : l));
+
     try {
       await toggleConsumed(id, currentStatus);
-      refetch();
+      // Optional: refetch to be sure, but optimistic update already handled UI
     } catch (e) {
+      setLogs(prev => prev.map(l => l.id === id ? { ...l, consumido: currentStatus } : l)); // Rollback
       alert("Error al actualizar el estado.");
     }
   };
 
   const handleToggleAllConsumed = async (mealType: string, status: boolean) => {
     if (!userId) return;
+    // Optimistic toggle all
+    setLogs(prev => prev.map(l => l.comida_tipo === mealType ? { ...l, consumido: status } : l));
+
     try {
       await toggleAllConsumed(userId, selectedDate, mealType, status);
-      refetch();
+      // Optional: refetch
     } catch (e) {
+      // Rollback is harder here because we don't know the exact previous statuses without cloning everything
+      // but usually the refetch will fix it eventually if it fails.
+      refetch();
       alert("Error al actualizar la comida completa.");
     }
   };

@@ -176,36 +176,68 @@ export function MealCard({
                                     )}
                                     onClick={() => onEdit?.(item.id)}
                                 >
-                                    <div className="w-9 h-9 rounded-xl bg-fuchsia-500/10 border border-fuchsia-500/15 flex items-center justify-center text-base shrink-0">
+                                    <div className={cn(
+                                        "w-9 h-9 rounded-xl border flex items-center justify-center text-base shrink-0 transition-all duration-500",
+                                        item.consumido
+                                            ? "bg-zinc-800/50 border-white/5 opacity-40 grayscale"
+                                            : "bg-fuchsia-500/10 border-fuchsia-500/15"
+                                    )}>
                                         🍽️
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-bold tracking-tight truncate">{item.nombre}</p>
+                                    <div className="flex-1 min-w-0 relative">
+                                        <p className={cn(
+                                            "text-sm font-bold tracking-tight truncate transition-all duration-500",
+                                            item.consumido ? "text-zinc-500" : "text-white"
+                                        )}>
+                                            {item.nombre}
+                                        </p>
+                                        <AnimatePresence>
+                                            {item.consumido && (
+                                                <motion.div
+                                                    initial={{ width: 0 }}
+                                                    animate={{ width: "100%" }}
+                                                    exit={{ width: 0 }}
+                                                    className="absolute top-1/2 left-0 h-[2px] bg-fuchsia-500/40 -translate-y-1/2"
+                                                />
+                                            )}
+                                        </AnimatePresence>
                                         <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">{item.estado}</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3 ml-2">
-                                    <div className="text-right">
+                                    <div className={cn(
+                                        "text-right transition-all duration-500",
+                                        item.consumido ? "opacity-40" : "opacity-100"
+                                    )}>
                                         <p className="text-sm font-black">{item.gramos}g</p>
                                         <p className="text-[10px] text-zinc-500 font-bold">{item.kcal} kcal</p>
                                     </div>
-                                    <div
+                                    <motion.div
+                                        whileTap={{ scale: 0.8 }}
+                                        whileHover={{ scale: 1.1 }}
+                                        transition={{ type: "spring", stiffness: 400, damping: 10 }}
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             onToggleConsumed?.(item.id, item.consumido);
                                         }}
                                         className={cn(
-                                            "w-7 h-7 rounded-full border flex items-center justify-center shrink-0 transition-all duration-300 mr-2",
+                                            "w-8 h-8 rounded-full border flex items-center justify-center shrink-0 transition-all duration-500 mr-2 cursor-pointer",
                                             item.consumido
-                                                ? "bg-fuchsia-500 border-fuchsia-400 shadow-[0_0_10px_rgba(217,70,239,0.5)]"
-                                                : "bg-fuchsia-500/5 border-fuchsia-500/20 hover:border-fuchsia-500/40"
+                                                ? "bg-fuchsia-500 border-fuchsia-400 shadow-[0_0_15px_rgba(217,70,239,0.6)]"
+                                                : "bg-white/5 border-white/10 hover:border-fuchsia-500/40"
                                         )}
                                     >
-                                        <CheckCircle2 className={cn(
-                                            "w-4 h-4 transition-colors",
-                                            item.consumido ? "text-white" : "text-fuchsia-500/30 group-hover:text-fuchsia-500/50"
-                                        )} />
-                                    </div>
+                                        <motion.div
+                                            initial={false}
+                                            animate={{ scale: item.consumido ? 1 : 0 }}
+                                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                                        >
+                                            <CheckCircle2 className="w-5 h-5 text-white" />
+                                        </motion.div>
+                                        {!item.consumido && (
+                                            <div className="w-2 h-2 rounded-full bg-fuchsia-500/20" />
+                                        )}
+                                    </motion.div>
                                 </div>
                             </motion.div>
                         </div>

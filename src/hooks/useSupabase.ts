@@ -146,7 +146,7 @@ export function useFoodLogs(userId?: string, date?: string) {
         fetchLogs();
     }, [fetchLogs]);
 
-    return { logs, loading, refetch: fetchLogs };
+    return { logs, loading, refetch: fetchLogs, setLogs };
 }
 
 export function useFoodLogActions() {
