@@ -328,12 +328,11 @@ export default function Dashboard() {
     const defaultOrder = ["Desayuno", "Snack 1", "Almuerzo", "Merienda", "Snack 2", "Cena"];
     const userOrder = profile.orden_comidas || defaultOrder;
 
-    // Get all unique meals currently in dashboard scope
+    // Derived current list to match UI
     const mealsFromLogs = Array.from(new Set(logs.map(l => l.comida_tipo)));
-    const allPotentialMeals = Array.from(new Set([...userOrder, ...mealsFromLogs]));
+    const allMeals = Array.from(new Set([...userOrder, ...mealsFromLogs]));
 
-    // Sort them exactly as they are appearing in the UI right now
-    const currentSorted = [...allPotentialMeals].sort((a, b) => {
+    const currentSorted = [...allMeals].sort((a, b) => {
       const indexA = userOrder.indexOf(a);
       const indexB = userOrder.indexOf(b);
       if (indexA === -1 && indexB === -1) return 0;
@@ -350,14 +349,15 @@ export default function Dashboard() {
       const nextOrder = [...currentSorted];
       [nextOrder[index], nextOrder[targetIndex]] = [nextOrder[targetIndex], nextOrder[index]];
 
-      // Persist the entire list as the new order preference
       await updateMealOrder(nextOrder);
+      // Wait for profile update to reflect in hook, or manually refetch
+      refetch();
     }
   };
 
   const handleRemoveMeal = async (meal: string) => {
     if (!profile) return;
-    const confirmed = confirm(`¿Estás seguro de que quieres eliminar "${meal}"? Se borrarán todos los alimentos de esta comida para hoy.`);
+    const confirmed = confirm(`¿Estás seguro de que quieres ocultar "${meal}"? Esta categoría dejará de aparecer en tu dashboard a menos que tenga alimentos registrados.`);
     if (!confirmed) return;
 
     try {
@@ -605,13 +605,13 @@ export default function Dashboard() {
                   return indexA - indexB;
                 });
 
-                return sortedMeals.map((meal, index) => {
+                const visibleMeals = sortedMeals.filter(meal => {
                   const mealLogsForSummary = logs.filter(l => l.comida_tipo === meal);
-                  // Hide empty custom meals that are NOT in the default order to keep UI clean, 
-                  // but keep default ones and any meal with logs.
-                  const isDefault = defaultOrder.includes(meal);
-                  if (!isDefault && mealLogsForSummary.length === 0 && !userOrder.includes(meal)) return null;
+                  return userOrder.includes(meal) || mealLogsForSummary.length > 0;
+                });
 
+                return visibleMeals.map((meal, index) => {
+                  const mealLogsForSummary = logs.filter(l => l.comida_tipo === meal);
                   const mealMacros = mealLogsForSummary.reduce((acc, log) => {
                     const m = calculateLogMacros(log);
                     return {
@@ -641,7 +641,7 @@ export default function Dashboard() {
                       onToggleConsumed={handleToggleConsumed}
                       onToggleAllConsumed={(status) => handleToggleAllConsumed(meal, status)}
                       onMoveUp={index > 0 ? () => handleMoveMeal(meal, 'up') : undefined}
-                      onMoveDown={index < sortedMeals.length - 1 ? () => handleMoveMeal(meal, 'down') : undefined}
+                      onMoveDown={index < visibleMeals.length - 1 ? () => handleMoveMeal(meal, 'down') : undefined}
                       onRename={() => handleRenameMeal(meal)}
                       onDeleteMeal={() => handleRemoveMeal(meal)}
                     />
