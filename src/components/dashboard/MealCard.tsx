@@ -65,20 +65,29 @@ export function MealCard({
                     </div>
                 </div>
                 <div className="flex flex-col items-end gap-2">
-                    <div className="flex items-center gap-1.5 opacity-0 group-hover/card:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-1">
                         {onMoveUp && (
-                            <button onClick={onMoveUp} className="p-1.5 rounded-lg bg-zinc-800/50 hover:bg-zinc-700/50 text-zinc-400 hover:text-white transition-colors">
-                                <ArrowUp className="w-3.5 h-3.5" />
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onMoveUp(); }}
+                                className="p-2.5 rounded-xl bg-zinc-800/40 border border-white/5 text-zinc-400 active:bg-zinc-700 active:text-white transition-all active:scale-95"
+                            >
+                                <ArrowUp className="w-4 h-4" />
                             </button>
                         )}
                         {onMoveDown && (
-                            <button onClick={onMoveDown} className="p-1.5 rounded-lg bg-zinc-800/50 hover:bg-zinc-700/50 text-zinc-400 hover:text-white transition-colors">
-                                <ArrowDown className="w-3.5 h-3.5" />
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onMoveDown(); }}
+                                className="p-2.5 rounded-xl bg-zinc-800/40 border border-white/5 text-zinc-400 active:bg-zinc-700 active:text-white transition-all active:scale-95"
+                            >
+                                <ArrowDown className="w-4 h-4" />
                             </button>
                         )}
                         {onRename && (
-                            <button onClick={onRename} className="p-1.5 rounded-lg bg-zinc-800/50 hover:bg-zinc-700/50 text-zinc-400 hover:text-white transition-colors">
-                                <Pencil className="w-3.5 h-3.5" />
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onRename(); }}
+                                className="p-2.5 rounded-xl bg-zinc-800/40 border border-white/5 text-zinc-400 active:bg-zinc-700 active:text-white transition-all active:scale-95"
+                            >
+                                <Pencil className="w-4 h-4" />
                             </button>
                         )}
                     </div>
