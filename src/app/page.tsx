@@ -369,6 +369,22 @@ export default function Dashboard() {
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -20 }}
           transition={{ duration: 0.3, ease: "easeOut" }}
+          drag="x"
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={0.4}
+          dragDirectionLock
+          onDragEnd={(_, info) => {
+            if (info.offset.x > 100) {
+              const d = new Date(selectedDate + "T12:00:00");
+              d.setDate(d.getDate() - 1);
+              setSelectedDate(d.toISOString().split("T")[0]);
+            } else if (info.offset.x < -100) {
+              const d = new Date(selectedDate + "T12:00:00");
+              d.setDate(d.getDate() + 1);
+              setSelectedDate(d.toISOString().split("T")[0]);
+            }
+          }}
+          className="cursor-grab active:cursor-grabbing"
         >
 
           {/* Progress Section */}
