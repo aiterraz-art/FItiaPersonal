@@ -139,24 +139,19 @@ export function MealCard({
             </div>
 
             <div className="space-y-4 mb-6">
-                <AnimatePresence mode="popLayout">
+                <AnimatePresence mode="popLayout" initial={false}>
                     {items.length > 0 ? items.map((item) => (
                         <div key={item.id} className="relative overflow-hidden rounded-2xl">
                             {/* Swipe Background (Delete) */}
                             {onDelete && (
-                                <div className="absolute inset-0 bg-linear-to-l from-red-600 to-red-500 flex items-center justify-end px-8">
-                                    <motion.div
-                                        initial={{ scale: 0.8, opacity: 0 }}
-                                        whileInView={{ scale: 1, opacity: 1 }}
-                                    >
-                                        <Trash2 className="w-5 h-5 text-white" />
-                                    </motion.div>
+                                <div className="absolute inset-0 bg-red-600 flex items-center justify-end px-8">
+                                    <Trash2 className="w-5 h-5 text-white/50" />
                                 </div>
                             )}
 
                             <motion.div
                                 layout
-                                initial={{ opacity: 0, x: -20 }}
+                                initial={false}
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, scale: 0.95 }}
                                 drag="x"
