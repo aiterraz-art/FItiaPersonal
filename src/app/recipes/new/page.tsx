@@ -28,6 +28,7 @@ export default function NewRecipePage() {
     const [search, setSearch] = useState("");
     const [searchResults, setSearchResults] = useState<any[]>([]);
     const [searching, setSearching] = useState(false);
+    const [aiLoading, setAiLoading] = useState(false);
     const [saving, setSaving] = useState(false);
 
     const calculateTotals = () => {
@@ -79,8 +80,71 @@ export default function NewRecipePage() {
         setSearching(false);
     };
 
-    const addIngredient = (food: any) => {
-        setIngredients([...ingredients, { food, gramos: 100 }]);
+    const handleAISearch = async () => {
+        if (!search) return;
+        setAiLoading(true);
+        try {
+            const res = await fetch("/api/ai/search", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ query: search })
+            });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+
+            if (data.items && Array.isArray(data.items)) {
+                const aiResults = data.items.map((item: any, idx: number) => ({
+                    ...item,
+                    id: `ai-${Date.now()}-${idx}`,
+                    type: 'food',
+                    isAI: true
+                }));
+                setSearchResults(prev => [...aiResults, ...prev]);
+            }
+        } catch (err) {
+            console.error("AI Search Error:", err);
+            alert("No se pudo obtener información de la IA. Verifica tu conexión o API Key.");
+        } finally {
+            setAiLoading(false);
+        }
+    };
+
+    const addIngredient = async (food: any) => {
+        let actualFood = food;
+
+        if (food.isAI) {
+            setSaving(true);
+            try {
+                const foodData = {
+                    nombre: String(food.nombre || "Alimento IA"),
+                    categoria: String(food.categoria || "Otros"),
+                    estado: (['crudo', 'cocido', 'n/a'].includes(food.estado) ? food.estado : 'n/a') as any,
+                    kcal: Number(food.kcal) || 0,
+                    proteinas: Number(food.proteinas) || 0,
+                    carbohidratos: Number(food.carbohidratos) || 0,
+                    grasas: Number(food.grasas) || 0,
+                    porcion_nombre: food.porcion_nombre || null,
+                    porcion_gramos: food.porcion_gramos || null
+                };
+
+                const { data: persistedFood, error: foodError } = await supabase
+                    .from("food_items")
+                    .insert(foodData)
+                    .select()
+                    .single();
+
+                if (foodError) throw foodError;
+                actualFood = persistedFood;
+            } catch (err: any) {
+                console.error("Error creating AI food:", err);
+                alert(`Error al guardar el nuevo alimento de IA: ${err.message}`);
+                setSaving(false);
+                return;
+            }
+            setSaving(false);
+        }
+
+        setIngredients([...ingredients, { food: actualFood, gramos: 100 }]);
         setSearch("");
         setSearchResults([]);
     };
@@ -239,24 +303,49 @@ export default function NewRecipePage() {
                         )}
 
                         {/* Search Results Dropdown */}
-                        {searchResults.length > 0 && (
-                            <div className="absolute top-full mt-2 left-0 right-0 bg-[#161322] border border-zinc-800 rounded-2xl shadow-2xl z-50 overflow-hidden backdrop-blur-xl">
-                                {searchResults.map((food) => (
-                                    <button
-                                        key={food.id}
-                                        onClick={() => addIngredient(food)}
-                                        className="w-full flex items-center gap-4 p-4 hover:bg-violet-500/10 border-b border-zinc-800/50 last:border-0 transition-colors text-left"
-                                    >
-                                        <div className="h-10 w-10 flex-shrink-0 bg-zinc-800 rounded-xl flex items-center justify-center">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-violet-400" />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-white font-bold truncate">{food.nombre}</p>
-                                            <p className="text-zinc-500 text-xs uppercase tracking-wider">{food.kcal} kcal / 100g</p>
-                                        </div>
-                                        <Plus className="w-5 h-5 text-violet-500" />
-                                    </button>
-                                ))}
+                        {(search.length > 2 || searchResults.length > 0) && (
+                            <div className="absolute top-full mt-2 left-0 right-0 bg-[#161322] border border-zinc-800 rounded-2xl shadow-2xl z-50 overflow-hidden backdrop-blur-xl max-h-80 overflow-y-auto">
+                                {searchResults.length > 0 ? (
+                                    <>
+                                        {searchResults.map((food) => (
+                                            <button
+                                                key={food.id}
+                                                onClick={() => addIngredient(food)}
+                                                className="w-full flex items-center gap-4 p-4 hover:bg-violet-500/10 border-b border-zinc-800/50 last:border-0 transition-colors text-left"
+                                            >
+                                                <div className="h-10 w-10 flex-shrink-0 bg-zinc-800 rounded-xl flex items-center justify-center">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-violet-400" />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-white font-bold flex items-center gap-2 truncate">
+                                                        {food.nombre}
+                                                        {food.isAI && (
+                                                            <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 text-[8px] font-black uppercase tracking-widest border border-blue-500/20">WEB</span>
+                                                        )}
+                                                    </p>
+                                                    <p className="text-zinc-500 text-xs uppercase tracking-wider">{food.kcal} kcal / 100g</p>
+                                                </div>
+                                                {food.isAI ? <span className="text-xl">✨</span> : <Plus className="w-5 h-5 text-violet-500" />}
+                                            </button>
+                                        ))}
+                                    </>
+                                ) : !searching && !aiLoading && (
+                                    <div className="p-6 text-center">
+                                        <p className="text-sm text-zinc-500 mb-4">No encontramos este ingrediente...</p>
+                                        <button
+                                            onClick={(e) => { e.preventDefault(); handleAISearch(); }}
+                                            className="px-6 py-2 bg-linear-to-r from-violet-600 to-blue-600 text-white font-black rounded-full text-xs uppercase tracking-widest active:scale-95 transition-all flex items-center gap-2 mx-auto shadow-lg shadow-violet-500/20"
+                                        >
+                                            <span>✨ Consultar con IA</span>
+                                        </button>
+                                    </div>
+                                )}
+                                {aiLoading && (
+                                    <div className="p-6 text-center">
+                                        <div className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                                        <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest animate-pulse">Consultando a IA...</p>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
