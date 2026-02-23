@@ -29,6 +29,7 @@ function AddFoodContent() {
     const [savedRecipes, setSavedRecipes] = useState<any[]>([]);
     const [selectedFood, setSelectedFood] = useState<any>(null);
     const [convertingState, setConvertingState] = useState(false);
+    const [loadingUnit, setLoadingUnit] = useState(false);
     const [gramos, setGramos] = useState(100);
     const [unidad, setUnidad] = useState<'gramos' | 'porcion'>('gramos');
     const [loadingHistory, setLoadingHistory] = useState(false);
@@ -854,7 +855,8 @@ function AddFoodContent() {
                             <div className="flex-1 space-y-2">
                                 <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block text-center">Unidad</label>
                                 <button
-                                    onClick={() => {
+                                    disabled={loadingUnit || selectedFood.type === 'recipe'}
+                                    onClick={async () => {
                                         if (selectedFood.porcion_nombre) {
                                             if (unidad === 'gramos') {
                                                 setUnidad('porcion');
@@ -863,16 +865,47 @@ function AddFoodContent() {
                                                 setUnidad('gramos');
                                                 setGramos(Math.round(1 * (selectedFood.porcion_gramos || 100)));
                                             }
+                                        } else if (selectedFood.type !== 'recipe') {
+                                            // Smart Unit Discovery
+                                            setLoadingUnit(true);
+                                            try {
+                                                const res = await fetch("/api/ai/refine", {
+                                                    method: "POST",
+                                                    headers: { "Content-Type": "application/json" },
+                                                    body: JSON.stringify({ food: selectedFood, action: 'discover-unit' })
+                                                });
+                                                const discovered = await res.json();
+                                                if (discovered.error) throw new Error(discovered.error);
+
+                                                const { id, ...oldFoodWithoutId } = selectedFood;
+                                                setSelectedFood({
+                                                    ...oldFoodWithoutId,
+                                                    ...discovered,
+                                                    id: `refined-unit-${Date.now()}`,
+                                                    isAI: true
+                                                });
+                                                setUnidad('porcion');
+                                                setGramos(1);
+                                            } catch (err) {
+                                                console.error("Unit discovery failed:", err);
+                                                alert("No pudimos determinar la unidad para este alimento.");
+                                            } finally {
+                                                setLoadingUnit(false);
+                                            }
                                         }
                                     }}
                                     className={cn(
-                                        "w-full border rounded-2xl py-4 px-4 text-center font-bold truncate active:scale-95 transition-all capitalize",
-                                        selectedFood.porcion_nombre
+                                        "w-full border rounded-2xl py-4 px-4 text-center font-bold truncate active:scale-95 transition-all capitalize flex items-center justify-center min-h-[58px]",
+                                        (selectedFood.porcion_nombre || selectedFood.type !== 'recipe')
                                             ? "bg-violet-500/10 border-violet-500/20 text-violet-400"
                                             : "bg-zinc-900/50 border-white/10 text-zinc-500 cursor-not-allowed"
                                     )}
                                 >
-                                    {unidad === 'gramos' ? 'gramos' : (selectedFood.porcion_nombre || 'unidad')}
+                                    {loadingUnit ? (
+                                        <div className="w-5 h-5 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
+                                    ) : (
+                                        unidad === 'gramos' ? 'gramos' : (selectedFood.porcion_nombre || 'unidad')
+                                    )}
                                 </button>
                             </div>
                             <div className="flex-1 space-y-2">
@@ -913,15 +946,21 @@ function AddFoodContent() {
 
                                         // 3. AI Fallback (Convert state)
                                         try {
-                                            const res = await fetch("/api/ai/convert-state", {
+                                            const res = await fetch("/api/ai/refine", {
                                                 method: "POST",
                                                 headers: { "Content-Type": "application/json" },
-                                                body: JSON.stringify({ food: selectedFood, targetState: newEstado })
+                                                body: JSON.stringify({ food: selectedFood, action: 'convert-state', targetState: newEstado })
                                             });
                                             const converted = await res.json();
                                             if (converted.error) throw new Error(converted.error);
 
-                                            setSelectedFood({ ...selectedFood, ...converted });
+                                            const { id, ...oldFoodWithoutId } = selectedFood;
+                                            setSelectedFood({
+                                                ...oldFoodWithoutId,
+                                                ...converted,
+                                                id: `refined-state-${Date.now()}`,
+                                                isAI: true
+                                            });
                                         } catch (err) {
                                             console.error("Conversion failed:", err);
                                             alert("No pudimos convertir el estado automáticamente.");
