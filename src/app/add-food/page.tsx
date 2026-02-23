@@ -149,9 +149,12 @@ function AddFoodContent() {
     const normalizeRecipe = (recipe: any) => {
         const ingredients = recipe.recipe_ingredients || [];
         const portions = recipe.porciones || 1;
+
+        let totalWeight = 0;
         const sums = ingredients.reduce((acc: any, ing: any) => {
             const f = ing.food_items;
             const factor = ing.gramos / 100;
+            totalWeight += Number(ing.gramos || 0);
             return {
                 kcal: acc.kcal + (Number(f.kcal) * factor),
                 proteinas: acc.proteinas + (Number(f.proteinas) * factor),
@@ -160,13 +163,18 @@ function AddFoodContent() {
             };
         }, { kcal: 0, proteinas: 0, carbohidratos: 0, grasas: 0 });
 
+        // Normalize to 100g base for the UI calculation logic
+        const factor100g = totalWeight > 0 ? (100 / totalWeight) : 0;
+
         return {
             ...recipe,
             type: 'recipe',
-            kcal: sums.kcal / portions,
-            proteinas: sums.proteinas / portions,
-            carbohidratos: sums.carbohidratos / portions,
-            grasas: sums.grasas / portions,
+            kcal: sums.kcal * factor100g,
+            proteinas: sums.proteinas * factor100g,
+            carbohidratos: sums.carbohidratos * factor100g,
+            grasas: sums.grasas * factor100g,
+            porcion_nombre: 'porción',
+            porcion_gramos: totalWeight / portions,
             estado: `${portions} porciones`
         };
     };
@@ -223,7 +231,8 @@ function AddFoodContent() {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
-            let targetFoodId = food.id;
+            let targetFoodId = food.type === 'recipe' ? null : food.id;
+            let targetRecipeId = food.type === 'recipe' ? food.id : null;
 
             // If it's an AI result, we need to persist it to the global database first
             if (food.isAI) {
@@ -261,11 +270,12 @@ function AddFoodContent() {
             let { error } = await supabase.from("food_logs").insert({
                 user_id: user.id,
                 food_id: targetFoodId,
+                recipe_id: targetRecipeId,
                 comida_tipo: (mealType || "Almuerzo") as any,
                 gramos: gramsToAdd,
                 fecha: targetDate,
                 original_cantidad: food.porcion_gramos ? 1 : 100,
-                original_unidad: food.porcion_gramos ? food.porcion_nombre : 'gramos'
+                original_unidad: food.porcion_gramos ? (food.porcion_nombre || 'porción') : 'gramos'
             });
 
             // FALLBACK: If column original_cantidad doesn't exist yet
@@ -274,6 +284,7 @@ function AddFoodContent() {
                 const { error: fallbackError } = await supabase.from("food_logs").insert({
                     user_id: user.id,
                     food_id: targetFoodId,
+                    recipe_id: targetRecipeId,
                     comida_tipo: (mealType || "Almuerzo") as any,
                     gramos: gramsToAdd,
                     fecha: targetDate
