@@ -28,6 +28,7 @@ function AddFoodContent() {
     const [history, setHistory] = useState<any[]>([]);
     const [savedRecipes, setSavedRecipes] = useState<any[]>([]);
     const [selectedFood, setSelectedFood] = useState<any>(null);
+    const [convertingState, setConvertingState] = useState(false);
     const [gramos, setGramos] = useState(100);
     const [unidad, setUnidad] = useState<'gramos' | 'porcion'>('gramos');
     const [loadingHistory, setLoadingHistory] = useState(false);
@@ -877,9 +878,25 @@ function AddFoodContent() {
                             <div className="flex-1 space-y-2">
                                 <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block text-center">Tipo de Peso</label>
                                 <button
+                                    disabled={convertingState || selectedFood.type === 'recipe'}
                                     onClick={async () => {
+                                        setConvertingState(true);
                                         const newEstado = selectedFood.estado === 'cocido' ? 'crudo' : 'cocido';
-                                        const baseName = selectedFood.nombre.split('(')[0].trim();
+                                        const baseName = selectedFood.nombre.split('(')[0].split('-')[0].trim();
+
+                                        // 1. Check transient results (from search)
+                                        const transientResult = results.find(f =>
+                                            f.estado === newEstado &&
+                                            f.nombre.toLowerCase().includes(baseName.toLowerCase())
+                                        );
+
+                                        if (transientResult) {
+                                            setSelectedFood({ ...transientResult, type: 'food' });
+                                            setConvertingState(false);
+                                            return;
+                                        }
+
+                                        // 2. Check Database
                                         const { data } = await supabase
                                             .from("food_items")
                                             .select("*")
@@ -887,11 +904,39 @@ function AddFoodContent() {
                                             .ilike("nombre", `%${baseName}%`)
                                             .limit(1)
                                             .single();
-                                        if (data) setSelectedFood(data);
+
+                                        if (data) {
+                                            setSelectedFood(data);
+                                            setConvertingState(false);
+                                            return;
+                                        }
+
+                                        // 3. AI Fallback (Convert state)
+                                        try {
+                                            const res = await fetch("/api/ai/convert-state", {
+                                                method: "POST",
+                                                headers: { "Content-Type": "application/json" },
+                                                body: JSON.stringify({ food: selectedFood, targetState: newEstado })
+                                            });
+                                            const converted = await res.json();
+                                            if (converted.error) throw new Error(converted.error);
+
+                                            setSelectedFood({ ...selectedFood, ...converted });
+                                        } catch (err) {
+                                            console.error("Conversion failed:", err);
+                                            alert("No pudimos convertir el estado automáticamente.");
+                                        } finally {
+                                            setConvertingState(false);
+                                        }
                                     }}
-                                    className="w-full bg-zinc-900/50 border border-white/10 rounded-2xl py-4 px-2 text-center font-extrabold capitalize text-zinc-200"
+                                    className={cn(
+                                        "w-full bg-zinc-900/50 border border-white/10 rounded-2xl py-4 px-2 text-center font-extrabold capitalize text-zinc-200 flex items-center justify-center min-h-[58px]",
+                                        (convertingState || selectedFood.type === 'recipe') && "opacity-50 cursor-not-allowed"
+                                    )}
                                 >
-                                    {selectedFood.estado || 'n/a'}
+                                    {convertingState ? (
+                                        <div className="w-5 h-5 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin" />
+                                    ) : (selectedFood.estado || 'n/a')}
                                 </button>
                             </div>
                         </div>
