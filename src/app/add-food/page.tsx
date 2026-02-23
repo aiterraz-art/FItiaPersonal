@@ -23,8 +23,10 @@ function AddFoodContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [search, setSearch] = useState("");
+    const [activeTab, setActiveTab] = useState<'recientes' | 'recetas'>('recientes');
     const [results, setResults] = useState<any[]>([]);
     const [history, setHistory] = useState<any[]>([]);
+    const [savedRecipes, setSavedRecipes] = useState<any[]>([]);
     const [selectedFood, setSelectedFood] = useState<any>(null);
     const [gramos, setGramos] = useState(100);
     const [unidad, setUnidad] = useState<'gramos' | 'porcion'>('gramos');
@@ -81,7 +83,29 @@ function AddFoodContent() {
             fetchRecipe(recipeId);
         }
         fetchHistory();
+        fetchSavedRecipes();
     }, [searchParams]);
+
+    const fetchSavedRecipes = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data } = await supabase
+            .from('recipes')
+            .select(`
+                *,
+                recipe_ingredients (
+                    *,
+                    food_items (*)
+                )
+            `)
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+
+        if (data) {
+            setSavedRecipes(data.map(r => normalizeRecipe(r)));
+        }
+    };
 
     const fetchHistory = async () => {
         setLoadingHistory(true);
@@ -513,11 +537,42 @@ function AddFoodContent() {
                     )}
 
                     <div className="space-y-4">
-                        <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider pl-1">
-                            {search.length > 0 ? "Resultados de búsqueda" : "Alimentos Recientes"}
-                        </p>
+                        {search.length === 0 && (
+                            <div className="flex gap-4 border-b border-zinc-800 mb-4 pb-2">
+                                <button
+                                    onClick={() => setActiveTab('recientes')}
+                                    className={cn(
+                                        "text-xs font-bold uppercase tracking-wider pb-2 relative transition-colors",
+                                        activeTab === 'recientes' ? "text-violet-400" : "text-zinc-500 hover:text-zinc-300"
+                                    )}
+                                >
+                                    Recientes
+                                    {activeTab === 'recientes' && (
+                                        <motion.div layoutId="activeTabBadge" className="absolute -bottom-2 left-0 right-0 h-0.5 bg-violet-400 rounded-full" />
+                                    )}
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('recetas')}
+                                    className={cn(
+                                        "text-xs font-bold uppercase tracking-wider pb-2 relative transition-colors",
+                                        activeTab === 'recetas' ? "text-violet-400" : "text-zinc-500 hover:text-zinc-300"
+                                    )}
+                                >
+                                    Mis Recetas
+                                    {activeTab === 'recetas' && (
+                                        <motion.div layoutId="activeTabBadge" className="absolute -bottom-2 left-0 right-0 h-0.5 bg-violet-400 rounded-full" />
+                                    )}
+                                </button>
+                            </div>
+                        )}
 
-                        {search.length === 0 && loadingHistory && (
+                        {search.length > 0 && (
+                            <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider pl-1">
+                                Resultados de búsqueda
+                            </p>
+                        )}
+
+                        {search.length === 0 && loadingHistory && activeTab === 'recientes' && (
                             <div className="py-4 text-center">
                                 <div className="w-5 h-5 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin mx-auto" />
                             </div>
@@ -544,7 +599,7 @@ function AddFoodContent() {
 
                         <motion.div layout className="space-y-3">
                             <AnimatePresence mode="popLayout">
-                                {(search.length > 0 ? results : history).map((food) => (
+                                {(search.length > 0 ? results : (activeTab === 'recientes' ? history : savedRecipes)).map((food) => (
                                     <div key={food.id} className="relative group overflow-hidden rounded-2xl">
                                         <div className="absolute inset-y-0 left-0 w-full bg-linear-to-r from-fuchsia-600 to-violet-600 flex items-center pl-6 z-0">
                                             <PlusCircle className="w-6 h-6 text-white" />
@@ -616,7 +671,7 @@ function AddFoodContent() {
                                                 )}>
                                                     {food.isAI ? '✨' : '+'}
                                                 </div>
-                                                {food.type === 'recipe' && (
+                                                {food.type === 'recipe' && search.length === 0 && activeTab === 'recetas' && (
                                                     <button
                                                         onClick={(e) => handleDeleteRecipe(food.id, e)}
                                                         className="absolute right-14 top-1/2 -translate-y-1/2 p-2 rounded-lg bg-red-500/10 text-red-500 opacity-0 group-hover:opacity-100 transition-all active:scale-90"
