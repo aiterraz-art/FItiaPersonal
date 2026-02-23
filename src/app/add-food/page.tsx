@@ -258,6 +258,14 @@ function AddFoodContent() {
             }
 
             if (!error) {
+                // Remove hidden meal marker if it exists for this meal
+                await supabase.from("food_logs").delete().match({
+                    user_id: user.id,
+                    fecha: targetDate,
+                    comida_tipo: mealType || "Almuerzo",
+                    original_unidad: 'HIDDEN_MEAL'
+                });
+
                 // Stay on page as requested before
                 if (food.isAI) fetchHistory(); // Refresh history if it was a new item
             }
@@ -351,6 +359,14 @@ function AddFoodContent() {
                 return;
             }
 
+            // Remove hidden meal marker if it exists for this meal
+            await supabase.from("food_logs").delete().match({
+                user_id: user.id,
+                fecha: targetDate,
+                comida_tipo: mealType || "Almuerzo",
+                original_unidad: 'HIDDEN_MEAL'
+            });
+
             // router.push("/"); // Stay on page to allow adding more
             setSelectedFood(null); // Return to search/list
             setSearch(""); // Clear search for next addition
@@ -437,7 +453,7 @@ function AddFoodContent() {
     return (
         <main className="min-h-screen text-white p-6 font-sans">
             <div className="flex items-center justify-between mb-8">
-                <button onClick={() => selectedFood ? setSelectedFood(null) : router.push("/")} className="p-2 -ml-2">
+                <button onClick={() => selectedFood ? setSelectedFood(null) : router.push(`/?date=${targetDate}`)} className="p-2 -ml-2">
                     <ChevronLeft className="w-6 h-6" />
                 </button>
                 <h1 className="text-xl font-bold">{selectedFood ? selectedFood.nombre : "Añadir Alimento"}</h1>

@@ -10,7 +10,8 @@ import { BottomNav } from "@/components/navigation/BottomNav";
 import { AISuggestion } from "@/components/dashboard/AISuggestion";
 import { EditLogModal } from "@/components/dashboard/EditLogModal";
 import { MonthlyCalendar } from "@/components/dashboard/MonthlyCalendar";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useProfile, useFoodLogs, useWaterLogs, useFoodLogActions, usePreloader } from "@/hooks/useSupabase";
@@ -70,7 +71,7 @@ function MealReorderItem({
   handleRemoveMeal
 }: any) {
   const dragControls = useDragControls();
-  const mealLogsForSummary = logs.filter((l: any) => l.comida_tipo === meal);
+  const mealLogsForSummary = logs.filter((l: any) => l.comida_tipo === meal && l.original_unidad !== 'HIDDEN_MEAL');
   const mealMacros = mealLogsForSummary.reduce((acc: any, log: any) => {
     const m = calculateLogMacros(log);
     return {
@@ -167,9 +168,13 @@ function DayContent({
 
     const defaultOrder = ["Desayuno", "Snack 1", "Almuerzo", "Merienda", "Snack 2", "Cena"];
     const userOrder = profile.orden_comidas || defaultOrder;
-    const mealsWithLogs = Array.from(new Set(logs.map(l => l.comida_tipo)));
+
+    const hiddenMeals = new Set(logs.filter((l: any) => l.original_unidad === 'HIDDEN_MEAL').map((l: any) => l.comida_tipo));
+    const visibleLogs = logs.filter((l: any) => l.original_unidad !== 'HIDDEN_MEAL');
+    const mealsWithLogs = Array.from(new Set(visibleLogs.map((l: any) => l.comida_tipo)));
 
     const targetMeals = Array.from(new Set([...userOrder, ...mealsWithLogs]))
+      .filter((m: string) => !hiddenMeals.has(m))
       .sort((a, b) => {
         const indexA = userOrder.indexOf(a);
         const indexB = userOrder.indexOf(b);
@@ -178,7 +183,7 @@ function DayContent({
         if (indexB === -1) return -1;
         return indexA - indexB;
       })
-      .filter(m => userOrder.includes(m) || mealsWithLogs.includes(m));
+      .filter((m: string) => userOrder.includes(m) || mealsWithLogs.includes(m));
 
     if (orderedMealNames.length === 0) {
       setOrderedMealNames(targetMeals);
@@ -198,6 +203,7 @@ function DayContent({
   }, [profile, logs]);
 
   const totalsPlanned = logs.reduce((acc, log) => {
+    if (log.original_unidad === 'HIDDEN_MEAL') return acc;
     const m = calculateLogMacros(log);
     return {
       kcal: acc.kcal + m.kcal,
@@ -208,7 +214,7 @@ function DayContent({
   }, { kcal: 0, p: 0, c: 0, g: 0 });
 
   const totalsConsumed = logs.reduce((acc, log) => {
-    if (!log.consumido) return acc;
+    if (!log.consumido || log.original_unidad === 'HIDDEN_MEAL') return acc;
     const m = calculateLogMacros(log);
     return {
       kcal: acc.kcal + m.kcal,
@@ -222,7 +228,7 @@ function DayContent({
   const deficit = Math.max(0, targetKcal - totalsConsumed.kcal);
 
   const filterLogsByMeal = (type: string) =>
-    logs.filter(l => l.comida_tipo === type).map(l => {
+    logs.filter(l => l.comida_tipo === type && l.original_unidad !== 'HIDDEN_MEAL').map(l => {
       const m = calculateLogMacros(l);
       return {
         id: l.id,
@@ -402,9 +408,15 @@ function DayContent({
     setOrderedMealNames(prev => prev.filter(m => m !== meal));
     try {
       await deleteMealLogs(userId, date, meal);
-      const nextProfileOrder = (profile.orden_comidas || []).filter((m: string) => m !== meal);
-      await updateMealOrder(nextProfileOrder);
-      await refetchProfile();
+
+      await supabase.from("food_logs").insert({
+        user_id: userId,
+        comida_tipo: meal,
+        fecha: date,
+        gramos: 0,
+        original_unidad: 'HIDDEN_MEAL'
+      });
+
       refetch();
     } catch (err) {
       setOrderedMealNames(originalUIOrder);
@@ -520,8 +532,17 @@ function DayContent({
   );
 }
 
-export default function Dashboard() {
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-black flex items-center justify-center"><div className="w-8 h-8 border-2 border-fuchsia-500 border-t-transparent rounded-full animate-spin" /></div>}>
+      <Dashboard />
+    </Suspense>
+  )
+}
+
+function Dashboard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [userId, setUserId] = useState<string | null>(null);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [shareTrigger, setShareTrigger] = useState(0);
@@ -533,8 +554,15 @@ export default function Dashboard() {
     return local.toISOString().split("T")[0];
   };
 
-  const [selectedDate, setSelectedDate] = useState(getLocalDateString());
+  const dateParam = searchParams.get("date");
+  const [selectedDate, setSelectedDate] = useState(dateParam || getLocalDateString());
   const [direction, setDirection] = useState(0);
+
+  useEffect(() => {
+    if (dateParam && dateParam !== selectedDate) {
+      setSelectedDate(dateParam);
+    }
+  }, [dateParam]);
 
   // Proactive Multi-Day Preloading (±3 days)
   usePreloader(userId, selectedDate);
