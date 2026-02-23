@@ -17,23 +17,29 @@ export async function POST(req: Request) {
 
     const prompt = `Actúa como un experto en nutrición y buscador de productos de supermercado. 
 El usuario busca: "${query}".
-REGLAS CRÍTICAS:
-1. Usa la búsqueda de Google para encontrar versiones REALES y ESPECÍFICAS del producto (especialmente de marcas chilenas como Lider, Soprole, Colun, Jumbo, etc.).
-2. Encuentra hasta 5 opciones diferentes si existen.
-3. Para cada opción, obtén la información nutricional exacta por cada 100 GRAMOS.
-4. MUY IMPORTANTE: Identifica si el producto tiene una PORCIÓN estándar (ej: "1 rebajada", "1 unidad", "1 envase", "1 pote"). Obtén el nombre de esa porción y cuántos GRAMOS pesa esa porción única.
-5. Responde EXCLUSIVAMENTE con un JSON válido en este formato exacto:
+REGLAS CRÍTICAS DE PRECISIÓN NUTRICIONAL:
+1. FUENTES REALES: Usa Google para encontrar información de etiquetas nutricionales reales (Chile: Lider, Jumbo, Marcas como Lucchetti, Carozzi, Ideal, Colun).
+2. BASE 100G: Los campos "kcal", "proteinas", "carbohidratos" y "grasas" DEBEN ser SIEMPRE por cada 100 gramos. Si la etiqueta solo da valores "por porción", calcula matemáticamente el equivalente a 100g.
+3. ANÁLISIS DE PORCIÓN: Identifica la porción sugerida de la etiqueta.
+   - "porcion_nombre": Nombre específico de la unidad (ej: "1 rebanada", "1/2 unidad", "1 envase", "1 huevo").
+   - "porcion_gramos": Cuánto pesa exactamente esa porción en gramos.
+4. DIFERENCIA CRUDO/COCIDO (CRITICAL): 
+   - Para pastas, arroz y legumbres, la diferencia es abismal por el peso del agua. 
+   - SIEMPRE indica en el "nombre" si el valor es "(Crudo)" o "(Cocido)".
+   - Si el usuario busca "Pasta", devuelve opciones para ambos estados si es posible.
+   - Datos referencia: Pasta cruda (~350 kcal/100g) vs Cocida (~130-150 kcal/100g). No los confundas.
+5. Responde EXCLUSIVAMENTE con un JSON válido:
 {"items": [
   {
-    "nombre":"Nombre exacto del producto 1",
+    "nombre":"Nombre Marca - Producto (Crudo/Cocido)",
     "kcal":0,
     "proteinas":0,
     "carbohidratos":0,
     "grasas":0,
     "categoria":"Categoría",
-    "estado":"n/a",
-    "porcion_nombre": "unidad", 
-    "porcion_gramos": 30
+    "estado":"crudo|cocido|n/a",
+    "porcion_nombre": "nombre de la unidad", 
+    "porcion_gramos": 0
   }
 ]}`;
 

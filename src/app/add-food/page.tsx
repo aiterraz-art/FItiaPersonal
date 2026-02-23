@@ -633,27 +633,33 @@ function AddFoodContent() {
                                         >
                                             <button
                                                 onClick={() => {
-                                                    if (food.type === 'recipe') {
-                                                        setSelectedFood(normalizeRecipe(food));
+                                                    const newFood = food.type === 'recipe' ? normalizeRecipe(food) : { ...food, type: 'food' };
+                                                    setSelectedFood(newFood);
+
+                                                    // Default to portion if it's available (eggs, yogurt, recipes, etc)
+                                                    if (newFood.porcion_nombre) {
+                                                        setUnidad('porcion');
+                                                        setGramos(1);
+                                                    } else if (newFood.last_cantidad) {
+                                                        setGramos(newFood.last_cantidad);
+                                                        setUnidad(newFood.last_unidad === 'gramos' ? 'gramos' : 'porcion');
                                                     } else {
-                                                        setSelectedFood({ ...food, type: 'food' });
-                                                        if (food.last_cantidad) {
-                                                            setGramos(food.last_cantidad);
-                                                            setUnidad(food.last_unidad === 'gramos' ? 'gramos' : 'porcion');
-                                                        }
+                                                        setGramos(100);
+                                                        setUnidad('gramos');
                                                     }
+
                                                     setSearch("");
                                                 }}
                                                 className={cn(
                                                     "w-full glass-card p-4 flex justify-between items-center group active:scale-[0.98] transition-all",
-                                                    food.isAI && "border-violet-500/30 bg-violet-500/5",
+                                                    food.isAI && "border-blue-500/30 bg-blue-500/5",
                                                     !food.isAI && search.length === 0 && "border-zinc-500/20 bg-zinc-900/40"
                                                 )}
                                             >
                                                 <div className="flex items-center gap-4">
-                                                    <span className="text-2xl">
+                                                    <div className="w-12 h-12 rounded-2xl bg-zinc-900/50 flex items-center justify-center text-2xl border border-white/5 group-hover:bg-violet-500/10 transition-colors">
                                                         {food.isAI ? '🌐' : (food.type === 'recipe' ? '👨‍🍳' : '🍽️')}
-                                                    </span>
+                                                    </div>
                                                     <div className="text-left">
                                                         <p className="font-bold flex items-center gap-2">
                                                             {food.nombre}
@@ -669,7 +675,8 @@ function AddFoodContent() {
                                                         </p>
                                                         <p className="text-[10px] text-zinc-500 font-bold uppercase">
                                                             {food.type === 'recipe' ? `${food.porciones} porciones` : (food.estado || 'n/a')}
-                                                            {food.isAI && ` • por 100g`}
+                                                            {food.porcion_nombre && ` • 1 porción = ${food.porcion_gramos}g`}
+                                                            {!food.porcion_nombre && food.isAI && ` • por 100g`}
                                                             {food.last_cantidad && (
                                                                 <span className="text-zinc-400"> • último: {food.last_cantidad}{food.last_unidad === 'gramos' ? 'g' : ` ${food.last_unidad}`}</span>
                                                             )}
