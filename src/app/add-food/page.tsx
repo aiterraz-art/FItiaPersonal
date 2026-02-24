@@ -309,7 +309,9 @@ function AddFoodContent() {
                 setResults(prev => prev.map(f => f.id === food.id ? { ...persistedFood, type: 'food', isAI: false } : f));
             }
 
-            const gramsToAdd = food.porcion_gramos ? Number(food.porcion_gramos) : 100;
+            const quantity = food.porcion_gramos ? 1 : (food.last_cantidad || 100);
+            const unit = food.porcion_gramos ? (food.porcion_nombre || 'porción') : (food.last_unidad || 'gramos');
+            const gramsToAdd = food.porcion_gramos ? Number(food.porcion_gramos) : (food.last_cantidad || 100);
 
             let { error } = await supabase.from("food_logs").insert({
                 user_id: user.id,
@@ -318,8 +320,8 @@ function AddFoodContent() {
                 comida_tipo: (mealType || "Almuerzo") as any,
                 gramos: gramsToAdd,
                 fecha: targetDate,
-                original_cantidad: food.porcion_gramos ? 1 : 100,
-                original_unidad: food.porcion_gramos ? (food.porcion_nombre || 'porción') : 'gramos'
+                original_cantidad: quantity,
+                original_unidad: unit
             });
 
             // FALLBACK: If column original_cantidad doesn't exist yet
@@ -862,15 +864,21 @@ function AddFoodContent() {
                                                     setSelectedFood(newFood);
 
                                                     // Default to portion if it's available (eggs, yogurt, recipes, etc)
-                                                    if (newFood.porcion_nombre) {
+                                                    if (newFood.porcion_nombre && newFood.porcion_gramos) {
                                                         setUnidad('porcion');
                                                         setGramos(1);
-                                                    } else if (newFood.last_cantidad) {
+                                                    } else if (newFood.last_cantidad && newFood.last_unidad) {
                                                         setGramos(newFood.last_cantidad);
                                                         setUnidad(newFood.last_unidad === 'gramos' ? 'gramos' : 'porcion');
                                                     } else {
-                                                        setGramos(100);
-                                                        setUnidad('gramos');
+                                                        const isUnitCommon = /huevo|galleta|pan|rebanada|fruta|frutilla|platano|manzana|yogurt/i.test(newFood.nombre);
+                                                        if (isUnitCommon && newFood.porcion_gramos) {
+                                                            setUnidad('porcion');
+                                                            setGramos(1);
+                                                        } else {
+                                                            setGramos(100);
+                                                            setUnidad('gramos');
+                                                        }
                                                     }
 
                                                     setSearch("");

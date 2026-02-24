@@ -27,9 +27,8 @@ export async function POST(req: Request) {
         
         SI ES UN PLATO DE COMIDA:
         1. Identifica el alimento o plato para "nombre".
-        2. Estima los gramos totales de la comida en la imagen para "mejor_gramos_estimados".
-        3. Normaliza las kcal, p, c, g a 100 gramos.
-        4. Opcional: "porcion_nombre" sería "plato" y "porcion_gramos" el total estimado.
+        2. OBLIGATORIO: Si el alimento es una unidad discreta (ej: "huevo", "manzana", "galleta", "yogurt", "rebanada de pan"), asume UNA unidad y devuélvelo en "porcion_nombre" y su peso estimado en "porcion_gramos".
+        3. Normaliza las kcal, p, c, g a 100 gramos exactos.
 
         El resultado OBLIGATORIO debe ser un JSON puro con esta estructura:
         {
@@ -40,14 +39,14 @@ export async function POST(req: Request) {
               "p": 0,
               "c": 0,
               "g": 0,
-              "porcion_nombre": "porción (o unidad/pieza)",
+              "porcion_nombre": "unidad/rebanada/etc",
               "porcion_gramos": 0,
               "gramos": 100
             }
           ]
         }
         
-        Asegúrate de que kcal, p, c, g sean numéricos y estén calculados en base a 100g.
+        Asegúrate de que kcal, p, c, g sean numéricos y estén calculados en base a 100g (OBLIGATORIO). Si la etiqueta da valores por porción, haz la regla de 3 a 100g.
         Devuelve SOLO el JSON puro sin markdown ni explicaciones adicionales.
         `;
 
