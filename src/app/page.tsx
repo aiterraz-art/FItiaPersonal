@@ -101,7 +101,9 @@ function MealReorderItem({
           gramos: l.gramos,
           kcal: Math.round(calculateLogMacros(l).kcal),
           estado: l.estado || "Crudo",
-          consumido: l.consumido
+          consumido: l.consumido,
+          original_cantidad: l.original_cantidad ?? null,
+          original_unidad: l.original_unidad ?? null
         }))}
         onDelete={handleDeleteLog}
         onEdit={handleEditLog}
@@ -236,7 +238,9 @@ function DayContent({
         gramos: l.gramos,
         kcal: Math.round(m.kcal),
         estado: m.info,
-        consumido: !!l.consumido
+        consumido: !!l.consumido,
+        original_cantidad: l.original_cantidad ?? null,
+        original_unidad: l.original_unidad ?? null
       };
     });
 

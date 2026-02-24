@@ -10,6 +10,8 @@ interface FoodItem {
     kcal: number;
     estado: string;
     consumido: boolean;
+    original_cantidad?: number | null;
+    original_unidad?: string | null;
 }
 
 interface MealCardProps {
@@ -120,7 +122,12 @@ function FoodLogItem({
                         "text-right transition-all duration-500 min-w-[50px]",
                         item.consumido ? "opacity-40" : "opacity-100"
                     )}>
-                        <p className="text-sm font-black">{item.gramos}g</p>
+                        <p className="text-sm font-black">
+                            {item.original_cantidad != null && item.original_unidad && item.original_unidad !== 'gramos'
+                                ? `${item.original_cantidad} ${item.original_unidad}`
+                                : `${item.gramos}g`
+                            }
+                        </p>
                         <p className="text-[10px] text-zinc-500 font-bold">{item.kcal} kcal</p>
                     </div>
                     <motion.div
