@@ -503,21 +503,34 @@ function AddFoodContent() {
         }
     };
 
-    // Converts any image format to JPEG via canvas (Gemini only supports jpeg/png/gif/webp)
-    const convertToJpeg = (dataUrl: string): Promise<string> => {
+    // Converts any image to JPEG via canvas using a blob URL (more reliable on iOS for HEIC)
+    const prepareImageForGemini = (file: File): Promise<string> => {
         return new Promise((resolve, reject) => {
+            const blobUrl = URL.createObjectURL(file);
             const img = new Image();
             img.onload = () => {
+                URL.revokeObjectURL(blobUrl);
+                // Limit max dimension to 1280px to avoid oversized payloads
+                const MAX = 1280;
+                let { naturalWidth: w, naturalHeight: h } = img;
+                if (w > MAX || h > MAX) {
+                    const ratio = Math.min(MAX / w, MAX / h);
+                    w = Math.round(w * ratio);
+                    h = Math.round(h * ratio);
+                }
                 const canvas = document.createElement("canvas");
-                canvas.width = img.naturalWidth;
-                canvas.height = img.naturalHeight;
+                canvas.width = w;
+                canvas.height = h;
                 const ctx = canvas.getContext("2d");
                 if (!ctx) return reject(new Error("Canvas not supported"));
-                ctx.drawImage(img, 0, 0);
-                resolve(canvas.toDataURL("image/jpeg", 0.92));
+                ctx.drawImage(img, 0, 0, w, h);
+                resolve(canvas.toDataURL("image/jpeg", 0.88));
             };
-            img.onerror = () => reject(new Error("Failed to load image for conversion"));
-            img.src = dataUrl;
+            img.onerror = () => {
+                URL.revokeObjectURL(blobUrl);
+                reject(new Error("No se pudo decodificar la imagen. Intentá con otra foto."));
+            };
+            img.src = blobUrl;
         });
     };
 
@@ -526,15 +539,8 @@ function AddFoodContent() {
         if (!file) return;
         setScanning(true);
         try {
-            const reader = new FileReader();
-            const base64Promise = new Promise<string>((resolve) => {
-                reader.onload = () => resolve(reader.result as string);
-                reader.readAsDataURL(file);
-            });
-            const rawBase64 = await base64Promise;
-
-            // Always convert to JPEG so Gemini Vision can process it regardless of original format
-            const base64Image = await convertToJpeg(rawBase64);
+            // Convert to JPEG regardless of original format (HEIC, PNG, WebP, etc.)
+            const base64Image = await prepareImageForGemini(file);
 
             const res = await fetch("/api/ai/vision-scan", {
                 method: "POST",
