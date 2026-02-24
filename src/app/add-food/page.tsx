@@ -503,6 +503,24 @@ function AddFoodContent() {
         }
     };
 
+    // Converts any image format to JPEG via canvas (Gemini only supports jpeg/png/gif/webp)
+    const convertToJpeg = (dataUrl: string): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement("canvas");
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                const ctx = canvas.getContext("2d");
+                if (!ctx) return reject(new Error("Canvas not supported"));
+                ctx.drawImage(img, 0, 0);
+                resolve(canvas.toDataURL("image/jpeg", 0.92));
+            };
+            img.onerror = () => reject(new Error("Failed to load image for conversion"));
+            img.src = dataUrl;
+        });
+    };
+
     const handlePhotoScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -513,7 +531,10 @@ function AddFoodContent() {
                 reader.onload = () => resolve(reader.result as string);
                 reader.readAsDataURL(file);
             });
-            const base64Image = await base64Promise;
+            const rawBase64 = await base64Promise;
+
+            // Always convert to JPEG so Gemini Vision can process it regardless of original format
+            const base64Image = await convertToJpeg(rawBase64);
 
             const res = await fetch("/api/ai/vision-scan", {
                 method: "POST",
