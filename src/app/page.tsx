@@ -142,6 +142,7 @@ function DayContent({
   const router = useRouter();
   const [copying, setCopying] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isCopyCalendarOpen, setIsCopyCalendarOpen] = useState(false);
 
 
   const { logs, refetch, setLogs } = useFoodLogs(userId || undefined, date);
@@ -279,22 +280,18 @@ function DayContent({
     }
   };
 
-  const handleCopyPreviousDay = async () => {
+  const handleCopyFromDate = async (dateToCopy: string) => {
     if (!userId || copying) return;
     setCopying(true);
     try {
-      const d = new Date(date + "T12:00:00");
-      d.setDate(d.getDate() - 1);
-      const prevDate = d.toISOString().split("T")[0];
-
       const { data: prevLogs, error: fetchError } = await supabase
         .from("food_logs")
         .select("food_id, comida_tipo, gramos")
         .eq("user_id", userId)
-        .eq("fecha", prevDate);
+        .eq("fecha", dateToCopy);
 
       if (fetchError || !prevLogs || prevLogs.length === 0) {
-        alert("No hay registros del día anterior para copiar.");
+        alert("No hay registros en la fecha seleccionada para copiar.");
         setCopying(false);
         return;
       }
@@ -472,11 +469,11 @@ function DayContent({
         </button>
 
         {logs.length === 0 && (
-          <button onClick={handleCopyPreviousDay} disabled={copying} className="w-full mb-6 py-5 glass-card flex items-center justify-center gap-3 active:scale-[0.98] transition-all group">
+          <button onClick={() => setIsCopyCalendarOpen(true)} disabled={copying} className="w-full mb-6 py-5 glass-card flex items-center justify-center gap-3 active:scale-[0.98] transition-all group">
             {copied ? (
               <span className="text-sm font-bold text-fuchsia-400">¡Dieta copiada!</span>
             ) : (
-              <span className="text-sm font-bold bg-gradient-to-r from-violet-400 to-blue-400 bg-clip-text text-transparent">Copiar dieta anterior</span>
+              <span className="text-sm font-bold bg-gradient-to-r from-violet-400 to-blue-400 bg-clip-text text-transparent">Copiar dieta de otro día</span>
             )}
           </button>
         )}
@@ -501,6 +498,15 @@ function DayContent({
           />
         </div>
       </div>
+
+      <MonthlyCalendar
+        isOpen={isCopyCalendarOpen}
+        onClose={() => setIsCopyCalendarOpen(false)}
+        selectedDate={date}
+        onDateSelect={(dateToCopy) => {
+          handleCopyFromDate(dateToCopy);
+        }}
+      />
     </div>
   );
 }
