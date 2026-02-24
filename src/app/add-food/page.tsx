@@ -530,11 +530,20 @@ function AddFoodContent() {
                     carbohidratos: bestMatch.c || 0,
                     grasas: bestMatch.g || 0,
                     categoria: "Otros",
-                    estado: "cocido",
+                    estado: "n/a", // Usually package/labels don't have cooked/raw state, just n/a
+                    porcion_nombre: bestMatch.porcion_nombre || "porción",
+                    porcion_gramos: bestMatch.porcion_gramos || null,
                     isAI: true,
                 };
                 setSelectedFood(scannedFood);
-                setGramos(bestMatch.gramos || 100);
+
+                if (bestMatch.porcion_gramos) {
+                    setUnidad('porcion');
+                    setGramos(1);
+                } else {
+                    setUnidad('gramos');
+                    setGramos(bestMatch.gramos || 100);
+                }
             } else {
                 alert("No se detectaron alimentos en la foto. Intentá de nuevo.");
             }
@@ -713,13 +722,13 @@ function AddFoodContent() {
                                                     setSearch("");
                                                 }}
                                                 className={cn(
-                                                    "w-full glass-card p-4 flex justify-between items-center group active:scale-[0.98] transition-all",
-                                                    food.isAI && "border-blue-500/30 bg-blue-500/5",
-                                                    !food.isAI && search.length === 0 && "border-zinc-500/20 bg-zinc-900/40"
+                                                    "w-full p-3 rounded-2xl flex justify-between items-center group active:scale-[0.98] transition-all border backdrop-blur-md",
+                                                    food.isAI ? "bg-linear-to-r from-blue-500/10 to-blue-500/5 border-blue-500/20" : "bg-linear-to-r from-zinc-900/30 to-zinc-800/10 border-white/5",
+                                                    !food.isAI && search.length === 0 && "border-zinc-500/20"
                                                 )}
                                             >
-                                                <div className="flex items-center gap-4">
-                                                    <div className="w-12 h-12 rounded-2xl bg-zinc-900/50 flex items-center justify-center text-2xl border border-white/5 group-hover:bg-violet-500/10 transition-colors">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 shrink-0 rounded-xl bg-zinc-900/50 flex items-center justify-center text-xl border border-white/5 group-hover:bg-violet-500/10 transition-colors">
                                                         {food.isAI ? '🌐' : (food.type === 'recipe' ? '👨‍🍳' : '🍽️')}
                                                     </div>
                                                     <div className="text-left">

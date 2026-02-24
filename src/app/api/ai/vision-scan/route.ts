@@ -17,27 +17,38 @@ export async function POST(req: Request) {
         });
 
         const prompt = `
-        Analiza esta imagen de un plato de comida. 
-        Identifica los alimentos presentes y estima su peso en gramos (estado COCIDO).
+        Analiza esta imagen atentamente. Puede ser una ETIQUETA NUTRICIONAL o un PLATO DE COMIDA.
+
+        SI ES UNA ETIQUETA NUTRICIONAL (o paquete de comida):
+        1. Extrae o deduce el nombre del producto para "nombre".
+        2. Extrae las kcal, proteínas (p), carbohidratos (c) y grasas (g).
+        3. OBLIGATORIO: Convierte y normaliza los macros (kcal, p, c, g) para que sean los valores correspondientes a 100 gramos exactos, haciendo la regla de 3 si la etiqueta solo da valores por porción.
+        4. Si la etiqueta indica un "tamaño de porción" (serving size), pon el nombre de la porción en "porcion_nombre" (ej: "galleta", "rebanada", "pieza", "porción") y los gramos equivalentes a esa porción en "porcion_gramos". Si no se menciona porción, pon los que correspondan al paquete.
         
-        REGLAS:
-        1. Sé lo más preciso posible.
-        2. El resultado debe ser un JSON puro con esta estructura:
+        SI ES UN PLATO DE COMIDA:
+        1. Identifica el alimento o plato para "nombre".
+        2. Estima los gramos totales de la comida en la imagen para "mejor_gramos_estimados".
+        3. Normaliza las kcal, p, c, g a 100 gramos.
+        4. Opcional: "porcion_nombre" sería "plato" y "porcion_gramos" el total estimado.
+
+        El resultado OBLIGATORIO debe ser un JSON puro con esta estructura:
         {
           "items": [
             {
-              "nombre": "Nombre del alimento",
-              "gramos": 0,
+              "nombre": "Nombre del producto/plato",
               "kcal": 0,
               "p": 0,
               "c": 0,
-              "g": 0
+              "g": 0,
+              "porcion_nombre": "porción (o unidad/pieza)",
+              "porcion_gramos": 0,
+              "gramos": 100
             }
-          ],
-          "total_kcal": 0
+          ]
         }
         
-        Devuelve SOLO el JSON sin markdown ni explicaciones.
+        Asegúrate de que kcal, p, c, g sean numéricos y estén calculados en base a 100g.
+        Devuelve SOLO el JSON puro sin markdown ni explicaciones adicionales.
         `;
 
         const result = await model.generateContent([
