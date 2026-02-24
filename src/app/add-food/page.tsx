@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, Suspense } from "react";
-import { ChevronLeft, Search, Info, Heart, Share2, MoreHorizontal, Trash2, ChevronDown, Flag, PlusCircle, Camera } from "lucide-react";
+import { ChevronLeft, Search, Heart, Share2, MoreHorizontal, Trash2, ChevronDown, Flag, PlusCircle, Camera, Pencil, X, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -39,6 +39,8 @@ function AddFoodContent() {
     const [creating, setCreating] = useState(false);
     const [scanning, setScanning] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editDraft, setEditDraft] = useState<any>(null);
 
     const targetDate = searchParams.get("date") || new Date().toISOString().split("T")[0];
     const mealType = searchParams.get("meal") || "Almuerzo";
@@ -556,6 +558,33 @@ function AddFoodContent() {
         }
     };
 
+    const openEditModal = () => {
+        setEditDraft({
+            nombre: selectedFood.nombre || "",
+            kcal: selectedFood.kcal ?? "",
+            proteinas: selectedFood.proteinas ?? "",
+            carbohidratos: selectedFood.carbohidratos ?? "",
+            grasas: selectedFood.grasas ?? "",
+            porcion_nombre: selectedFood.porcion_nombre || "",
+            porcion_gramos: selectedFood.porcion_gramos ?? "",
+        });
+        setShowEditModal(true);
+    };
+
+    const saveEditDraft = () => {
+        setSelectedFood((prev: any) => ({
+            ...prev,
+            nombre: editDraft.nombre || prev.nombre,
+            kcal: editDraft.kcal !== "" ? Number(editDraft.kcal) : prev.kcal,
+            proteinas: editDraft.proteinas !== "" ? Number(editDraft.proteinas) : prev.proteinas,
+            carbohidratos: editDraft.carbohidratos !== "" ? Number(editDraft.carbohidratos) : prev.carbohidratos,
+            grasas: editDraft.grasas !== "" ? Number(editDraft.grasas) : prev.grasas,
+            porcion_nombre: editDraft.porcion_nombre || prev.porcion_nombre || null,
+            porcion_gramos: editDraft.porcion_gramos !== "" ? Number(editDraft.porcion_gramos) : (prev.porcion_gramos || null),
+        }));
+        setShowEditModal(false);
+    };
+
     return (
         <main className="min-h-screen text-white p-6 font-sans">
             <div className="flex items-center justify-between mb-8">
@@ -566,14 +595,112 @@ function AddFoodContent() {
                 <div className="flex items-center gap-4">
                     {selectedFood && (
                         <>
+                            {selectedFood.isAI && (
+                                <button
+                                    onClick={openEditModal}
+                                    className="p-2 rounded-xl bg-violet-500/10 border border-violet-500/20 active:scale-90 transition-all"
+                                >
+                                    <Pencil className="w-4 h-4 text-violet-400" />
+                                </button>
+                            )}
                             <Heart className="w-6 h-6 text-violet-400 fill-violet-400" />
-                            <Share2 className="w-6 h-6 text-zinc-400" />
                             <MoreHorizontal className="w-6 h-6 text-zinc-400" />
                         </>
                     )}
                     {!selectedFood && <div className="w-6" />}
                 </div>
             </div>
+
+            {/* ── Edit Scanned Food Modal ─────────────────────────────── */}
+            {showEditModal && editDraft && (
+                <div className="fixed inset-0 z-100 flex items-end justify-center">
+                    {/* Backdrop */}
+                    <div
+                        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+                        onClick={() => setShowEditModal(false)}
+                    />
+                    {/* Sheet */}
+                    <div className="relative z-10 w-full max-w-lg bg-[#0d0820] border-t border-violet-500/20 rounded-t-3xl p-6 pb-10 animate-in slide-in-from-bottom-4 duration-300">
+                        <div className="flex items-center justify-between mb-5">
+                            <h3 className="text-base font-black text-white uppercase tracking-wider">✏️ Editar alimento</h3>
+                            <button onClick={() => setShowEditModal(false)} className="p-1.5 rounded-lg bg-zinc-800 active:scale-90 transition-all">
+                                <X className="w-4 h-4 text-zinc-400" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4 max-h-[70vh] overflow-y-auto">
+                            {/* Nombre */}
+                            <div className="space-y-1">
+                                <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Nombre</label>
+                                <input
+                                    type="text"
+                                    value={editDraft.nombre}
+                                    onChange={(e) => setEditDraft({ ...editDraft, nombre: e.target.value })}
+                                    className="w-full bg-violet-500/5 border border-violet-500/20 rounded-xl py-3 px-4 text-sm focus:outline-none focus:ring-1 focus:ring-violet-500/50 font-medium"
+                                />
+                            </div>
+
+                            {/* Macros grid */}
+                            <div className="grid grid-cols-2 gap-3">
+                                {[
+                                    { key: "kcal", label: "Calorías (kcal)", icon: "🔥" },
+                                    { key: "proteinas", label: "Proteínas (g)", icon: "💪" },
+                                    { key: "carbohidratos", label: "Carbos (g)", icon: "🌾" },
+                                    { key: "grasas", label: "Grasas (g)", icon: "🫒" },
+                                ].map((field) => (
+                                    <div key={field.key} className="space-y-1">
+                                        <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                                            <span>{field.icon}</span> {field.label}
+                                        </label>
+                                        <input
+                                            type="number"
+                                            value={editDraft[field.key]}
+                                            onChange={(e) => setEditDraft({ ...editDraft, [field.key]: e.target.value })}
+                                            className="w-full bg-violet-500/5 border border-violet-500/20 rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-violet-500/50 font-bold text-center"
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Portion */}
+                            <div className="space-y-2">
+                                <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Porción (opcional)</label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] text-zinc-600 font-bold uppercase tracking-wider">Nombre porción</label>
+                                        <input
+                                            type="text"
+                                            placeholder="ej: rebanada"
+                                            value={editDraft.porcion_nombre}
+                                            onChange={(e) => setEditDraft({ ...editDraft, porcion_nombre: e.target.value })}
+                                            className="w-full bg-violet-500/5 border border-violet-500/20 rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-violet-500/50 font-medium"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] text-zinc-600 font-bold uppercase tracking-wider">Gramos</label>
+                                        <input
+                                            type="number"
+                                            placeholder="ej: 30"
+                                            value={editDraft.porcion_gramos}
+                                            onChange={(e) => setEditDraft({ ...editDraft, porcion_gramos: e.target.value })}
+                                            className="w-full bg-violet-500/5 border border-violet-500/20 rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-violet-500/50 font-bold text-center"
+                                        />
+                                    </div>
+                                </div>
+                                <p className="text-[9px] text-zinc-600">Los valores nutricionales son siempre por 100g. La porción solo define la unidad de medida.</p>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={saveEditDraft}
+                            className="mt-5 w-full py-4 bg-linear-to-r from-violet-600 to-blue-600 rounded-2xl text-white font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-violet-500/20 active:scale-95 transition-all"
+                        >
+                            <Check className="w-4 h-4" />
+                            Guardar cambios
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {!selectedFood ? (
                 <>
