@@ -722,13 +722,13 @@ function AddFoodContent() {
                                                     setSearch("");
                                                 }}
                                                 className={cn(
-                                                    "w-full p-2 rounded-xl flex justify-between items-center group active:scale-[0.98] transition-all border border-white/5 backdrop-blur-sm",
-                                                    food.isAI ? "bg-linear-to-r from-blue-500/10 to-indigo-500/5" : "bg-linear-to-r from-fuchsia-500/10 to-violet-500/5",
-                                                    !food.isAI && search.length === 0 && "border-white/10"
+                                                    "w-full p-2 rounded-xl flex justify-between items-center group active:scale-[0.98] transition-all border border-white/10 backdrop-blur-md",
+                                                    food.isAI ? "bg-linear-to-r from-blue-500/5 to-indigo-500/5" : "bg-linear-to-r from-fuchsia-500/5 to-violet-500/5",
+                                                    !food.isAI && search.length === 0 && "border-white/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
                                                 )}
                                             >
                                                 <div className="flex items-center gap-2.5">
-                                                    <div className="w-9 h-9 shrink-0 rounded-lg bg-linear-to-br from-violet-500 to-blue-500 flex items-center justify-center text-lg shadow-lg shadow-violet-500/20">
+                                                    <div className="w-9 h-9 shrink-0 rounded-lg bg-linear-to-br from-violet-600 via-violet-500 to-blue-500 flex items-center justify-center text-lg shadow-xl shadow-violet-500/30">
                                                         {food.isAI ? '🌐' : (food.type === 'recipe' ? '👨‍🍳' : '🍽️')}
                                                     </div>
                                                     <div className="text-left">
