@@ -722,44 +722,41 @@ function AddFoodContent() {
                                                     setSearch("");
                                                 }}
                                                 className={cn(
-                                                    "w-full p-2.5 rounded-xl flex justify-between items-center group active:scale-[0.98] transition-all border border-white/5",
-                                                    food.isAI ? "bg-linear-to-r from-blue-900/40 to-indigo-900/20" : "bg-linear-to-r from-violet-950/40 to-blue-950/20",
+                                                    "w-full p-2 rounded-xl flex justify-between items-center group active:scale-[0.98] transition-all border border-white/5 backdrop-blur-sm",
+                                                    food.isAI ? "bg-linear-to-r from-blue-500/10 to-indigo-500/5" : "bg-linear-to-r from-fuchsia-500/10 to-violet-500/5",
                                                     !food.isAI && search.length === 0 && "border-white/10"
                                                 )}
                                             >
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 shrink-0 rounded-lg bg-linear-to-br from-violet-600 to-blue-600 flex items-center justify-center text-xl shadow-lg shadow-violet-500/10">
+                                                <div className="flex items-center gap-2.5">
+                                                    <div className="w-9 h-9 shrink-0 rounded-lg bg-linear-to-br from-violet-500 to-blue-500 flex items-center justify-center text-lg shadow-lg shadow-violet-500/20">
                                                         {food.isAI ? '🌐' : (food.type === 'recipe' ? '👨‍🍳' : '🍽️')}
                                                     </div>
                                                     <div className="text-left">
-                                                        <p className="font-bold flex items-center gap-2">
+                                                        <p className="font-bold text-[13px] flex items-center gap-1.5 leading-tight">
                                                             {food.nombre}
                                                             {food.type === 'recipe' && (
-                                                                <span className="px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-400 text-[8px] font-black uppercase tracking-widest border border-violet-500/20">RECETA</span>
+                                                                <span className="px-1 py-0.5 rounded bg-violet-500/20 text-violet-300 text-[7px] font-black uppercase tracking-wider border border-violet-500/30">RECETA</span>
                                                             )}
                                                             {food.isAI && (
-                                                                <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 text-[8px] font-black uppercase tracking-widest border border-blue-500/20">WEB</span>
+                                                                <span className="px-1 py-0.5 rounded bg-blue-500/20 text-blue-300 text-[7px] font-black uppercase tracking-wider border border-blue-500/30">WEB</span>
                                                             )}
                                                             {search.length === 0 && !food.isAI && (
-                                                                <span className="px-1.5 py-0.5 rounded bg-zinc-500/10 text-zinc-400 text-[8px] font-black uppercase tracking-widest border border-zinc-500/20">RECIENTE</span>
+                                                                <span className="px-1 py-0.5 rounded bg-zinc-500/20 text-zinc-400 text-[7px] font-black uppercase tracking-wider border border-zinc-500/30">RECIENTE</span>
                                                             )}
                                                         </p>
-                                                        <p className="text-[10px] text-zinc-500 font-bold uppercase">
+                                                        <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-tight mt-0.5">
                                                             {food.type === 'recipe' ? `${food.porciones} porciones` : (food.estado || 'n/a')}
                                                             {food.porcion_nombre && ` • 1 porción = ${food.porcion_gramos}g`}
                                                             {!food.porcion_nombre && food.isAI && ` • por 100g`}
-                                                            {food.last_cantidad && (
-                                                                <span className="text-zinc-400"> • último: {food.last_cantidad}{food.last_unidad === 'gramos' ? 'g' : ` ${food.last_unidad}`}</span>
-                                                            )}
                                                         </p>
                                                     </div>
                                                 </div>
                                                 <div className={cn(
-                                                    "px-3 py-1.5 rounded-full flex items-center justify-center gap-1 transition-all group-hover:scale-105 active:scale-95",
-                                                    food.isAI ? "bg-linear-to-r from-blue-500 to-cyan-500" : "bg-linear-to-r from-fuchsia-500 to-violet-600"
+                                                    "px-3 py-1 rounded-full flex items-center justify-center gap-1 transition-all group-hover:scale-105 active:scale-95 shadow-lg",
+                                                    food.isAI ? "bg-linear-to-r from-blue-500 to-cyan-500 shadow-blue-500/20" : "bg-linear-to-r from-fuchsia-500 to-violet-500 shadow-fuchsia-500/20"
                                                 )}>
-                                                    <span className="text-[10px] font-black text-white uppercase tracking-wider">{food.isAI ? 'SCAN' : 'AÑADIR'}</span>
-                                                    <PlusCircle className="w-3.5 h-3.5 text-white" />
+                                                    <span className="text-[9px] font-black text-white uppercase tracking-widest">{food.isAI ? 'SCAN' : 'ADD'}</span>
+                                                    <PlusCircle className="w-3 h-3 text-white" />
                                                 </div>
                                                 {food.type === 'recipe' && search.length === 0 && activeTab === 'recetas' && (
                                                     <button
