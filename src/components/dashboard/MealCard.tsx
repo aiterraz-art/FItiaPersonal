@@ -3,6 +3,19 @@ import { CheckCircle2, Plus, Trash2, ArrowUp, ArrowDown, GripVertical } from "lu
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
+// Si la unidad es "2 galletas" y la cantidad es 3, muestra "6 galletas"
+function formatQuantityDisplay(cantidad: number | null | undefined, unidad: string | null | undefined, gramos: number): string {
+    if (cantidad == null || !unidad || unidad === 'gramos') return `${gramos}g`;
+    const match = unidad.match(/^(\d+\.?\d*)\s+(.+)$/);
+    if (match) {
+        const unitMultiplier = parseFloat(match[1]);
+        const unitName = match[2];
+        const total = Math.round(cantidad * unitMultiplier);
+        return `${total} ${unitName}`;
+    }
+    return `${cantidad} ${unidad}`;
+}
+
 interface FoodItem {
     id: string;
     nombre: string;
@@ -123,10 +136,7 @@ function FoodLogItem({
                         item.consumido ? "opacity-40" : "opacity-100"
                     )}>
                         <p className="text-sm font-black">
-                            {item.original_cantidad != null && item.original_unidad && item.original_unidad !== 'gramos'
-                                ? `${item.original_cantidad} ${item.original_unidad}`
-                                : `${item.gramos}g`
-                            }
+                            {formatQuantityDisplay(item.original_cantidad, item.original_unidad, item.gramos)}
                         </p>
                         <p className="text-[10px] text-zinc-500 font-bold">{item.kcal} kcal</p>
                     </div>
