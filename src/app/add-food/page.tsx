@@ -376,9 +376,21 @@ function AddFoodContent() {
                 return;
             }
 
-            const newGramos = unidad === 'gramos' ? gramos : (gramos * (selectedFood.porcion_gramos || 100));
-            const newOriginalCantidad = gramos;
-            const newOriginalUnidad = unidad === 'gramos' ? 'gramos' : (selectedFood.porcion_nombre || 'porcion');
+            // ─── CALCULATE FINAL VALUES ───────────────────────────────────────
+            const portionInfo = selectedFood.porcion_nombre
+                ? (() => {
+                    const match = selectedFood.porcion_nombre.match(/^(\d+\.?\d*)\s+(.+)$/);
+                    return match ? { multiplier: parseFloat(match[1]), label: match[2] } : { multiplier: 1, label: selectedFood.porcion_nombre };
+                })()
+                : { multiplier: 1, label: 'porción' };
+
+            // If it's a multi-unit portion (e.g. "2 galletas"), 'gramos' (input) represents total units.
+            // We need to convert it to portions: portions = units / multiplier
+            const portionsCount = unidad === 'gramos' ? 1 : (gramos / portionInfo.multiplier);
+            const newGramos = unidad === 'gramos' ? gramos : (portionsCount * (selectedFood.porcion_gramos || 100));
+
+            const newOriginalCantidad = portionsCount;
+            const newOriginalUnidad = unidad === 'gramos' ? 'gramos' : (selectedFood.porcion_nombre || 'porción');
 
             // ─── EDIT MODE: update existing log ───────────────────────────────
             if (editMode && editingLogId) {
@@ -1017,7 +1029,13 @@ function AddFoodContent() {
                         <h2 className="text-3xl font-extrabold mb-1">{selectedFood.nombre}</h2>
                         <p className="text-zinc-500 font-bold text-sm">Genérico</p>
                         <p className="text-[10px] text-zinc-500 font-bold mt-6 uppercase tracking-[0.2em]">
-                            Datos por {gramos} g - peso {selectedFood.estado || 'cocido'}
+                            {(() => {
+                                if (unidad === 'gramos') return `Peso: ${gramos}g`;
+                                const match = selectedFood.porcion_nombre?.match(/^(\d+\.?\d*)\s+(.+)$/);
+                                const totalGramos = Math.round((gramos / (match ? parseFloat(match[1]) : 1)) * (selectedFood.porcion_gramos || 100));
+                                const label = match ? match[2] : (selectedFood.porcion_nombre || 'porciones');
+                                return `${gramos} ${label} · ${totalGramos}g`;
+                            })()} - {selectedFood.estado || 'cocido'}
                         </p>
                     </div>
 
@@ -1072,7 +1090,10 @@ function AddFoodContent() {
                         <div className="flex gap-4 mb-6">
                             <div className="flex-1 space-y-2">
                                 <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block text-center">
-                                    {unidad === 'gramos' ? 'Cantidad' : 'Porciones'}
+                                    {unidad === 'gramos' ? 'Cantidad' : (() => {
+                                        const match = selectedFood.porcion_nombre?.match(/^(\d+\.?\d*)\s+(.+)$/);
+                                        return match ? match[2] : (selectedFood.porcion_nombre || 'Porciones');
+                                    })()}
                                 </label>
                                 <input
                                     type="number"
@@ -1133,7 +1154,10 @@ function AddFoodContent() {
                                     {loadingUnit ? (
                                         <div className="w-5 h-5 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
                                     ) : (
-                                        unidad === 'gramos' ? 'gramos' : (selectedFood.porcion_nombre || 'unidad')
+                                        unidad === 'gramos' ? 'gramos' : (() => {
+                                            const match = selectedFood.porcion_nombre?.match(/^(\d+\.?\d*)\s+(.+)$/);
+                                            return match ? match[2] : (selectedFood.porcion_nombre || 'unidad');
+                                        })()
                                     )}
                                 </button>
                             </div>
