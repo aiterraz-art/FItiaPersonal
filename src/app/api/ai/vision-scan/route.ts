@@ -51,23 +51,34 @@ export async function POST(req: Request) {
         Devuelve SOLO el JSON puro sin markdown ni explicaciones adicionales.
         `;
 
+        // Extract real mimeType from data URI (e.g. "data:image/png;base64,...")
+        const mimeMatch = image.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9+.-]+);base64,/);
+        const mimeType = mimeMatch ? mimeMatch[1] : "image/jpeg";
+        const base64Data = image.includes(',') ? image.split(',')[1] : image;
+
         const result = await model.generateContent([
             prompt,
             {
                 inlineData: {
-                    data: image.split(',')[1],
-                    mimeType: "image/jpeg"
+                    data: base64Data,
+                    mimeType
                 }
             }
         ]);
 
         let responseText = result.response.text();
 
-        // Clean JSON if needed
+        // Clean JSON if wrapped in markdown code blocks
         if (responseText.includes('```json')) {
             responseText = responseText.split('```json')[1].split('```')[0].trim();
         } else if (responseText.includes('```')) {
             responseText = responseText.split('```')[1].split('```')[0].trim();
+        }
+
+        // Regex fallback: extract first JSON object/array from response
+        if (!responseText.trim().startsWith('{') && !responseText.trim().startsWith('[')) {
+            const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+            if (jsonMatch) responseText = jsonMatch[0];
         }
 
         const scanResult = JSON.parse(responseText);

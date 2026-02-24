@@ -551,7 +551,7 @@ function AddFoodContent() {
             }
         } catch (err: any) {
             console.error("Scan error:", err);
-            alert("No se pudo analizar la imagen. Intentá con otra foto más clara.");
+            alert(`No se pudo analizar la imagen: ${err.message || "Error desconocido"}.`);
         } finally {
             setScanning(false);
             if (fileInputRef.current) fileInputRef.current.value = "";
