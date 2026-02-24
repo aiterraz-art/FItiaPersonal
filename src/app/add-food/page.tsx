@@ -722,13 +722,13 @@ function AddFoodContent() {
                                                     setSearch("");
                                                 }}
                                                 className={cn(
-                                                    "w-full p-3 rounded-2xl flex justify-between items-center group active:scale-[0.98] transition-all border backdrop-blur-md",
-                                                    food.isAI ? "bg-linear-to-r from-blue-500/10 to-blue-500/5 border-blue-500/20" : "bg-linear-to-r from-zinc-900/30 to-zinc-800/10 border-white/5",
-                                                    !food.isAI && search.length === 0 && "border-zinc-500/20"
+                                                    "w-full p-2.5 rounded-xl flex justify-between items-center group active:scale-[0.98] transition-all border border-white/5",
+                                                    food.isAI ? "bg-linear-to-r from-blue-900/40 to-indigo-900/20" : "bg-linear-to-r from-violet-950/40 to-blue-950/20",
+                                                    !food.isAI && search.length === 0 && "border-white/10"
                                                 )}
                                             >
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 shrink-0 rounded-xl bg-zinc-900/50 flex items-center justify-center text-xl border border-white/5 group-hover:bg-violet-500/10 transition-colors">
+                                                    <div className="w-10 h-10 shrink-0 rounded-lg bg-linear-to-br from-violet-600 to-blue-600 flex items-center justify-center text-xl shadow-lg shadow-violet-500/10">
                                                         {food.isAI ? '🌐' : (food.type === 'recipe' ? '👨‍🍳' : '🍽️')}
                                                     </div>
                                                     <div className="text-left">
@@ -755,10 +755,11 @@ function AddFoodContent() {
                                                     </div>
                                                 </div>
                                                 <div className={cn(
-                                                    "w-8 h-8 rounded-full flex items-center justify-center transition-all group-hover:scale-110",
-                                                    food.isAI ? "bg-blue-500/20 text-blue-400" : "bg-linear-to-br from-fuchsia-500 to-blue-500 text-white shadow-lg shadow-fuchsia-500/20"
+                                                    "px-3 py-1.5 rounded-full flex items-center justify-center gap-1 transition-all group-hover:scale-105 active:scale-95",
+                                                    food.isAI ? "bg-linear-to-r from-blue-500 to-cyan-500" : "bg-linear-to-r from-fuchsia-500 to-violet-600"
                                                 )}>
-                                                    {food.isAI ? '✨' : '+'}
+                                                    <span className="text-[10px] font-black text-white uppercase tracking-wider">{food.isAI ? 'SCAN' : 'AÑADIR'}</span>
+                                                    <PlusCircle className="w-3.5 h-3.5 text-white" />
                                                 </div>
                                                 {food.type === 'recipe' && search.length === 0 && activeTab === 'recetas' && (
                                                     <button
