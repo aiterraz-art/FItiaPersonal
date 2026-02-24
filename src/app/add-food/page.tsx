@@ -42,6 +42,46 @@ function AddFoodContent() {
 
     const targetDate = searchParams.get("date") || new Date().toISOString().split("T")[0];
     const mealType = searchParams.get("meal") || "Almuerzo";
+    const editingLogId = searchParams.get("logId") || null;
+    const [editMode, setEditMode] = useState(!!editingLogId);
+
+    // Load existing log when in edit mode
+    useEffect(() => {
+        if (!editingLogId) return;
+        async function loadLog() {
+            const { data, error } = await supabase
+                .from('food_logs')
+                .select(`
+                    *,
+                    food_items (*),
+                    recipes (
+                        *,
+                        recipe_ingredients (
+                            *,
+                            food_items (*)
+                        )
+                    )
+                `)
+                .eq('id', editingLogId)
+                .single();
+            if (error || !data) return;
+            if (data.food_items) {
+                setSelectedFood({ ...data.food_items, type: 'food' });
+            } else if (data.recipes) {
+                setSelectedFood(normalizeRecipe({ ...data.recipes, type: 'recipe' }));
+            }
+            // Restore unit selection
+            if (data.original_unidad && data.original_unidad !== 'gramos' && data.original_unidad !== 'HIDDEN_MEAL') {
+                setUnidad('porcion');
+                setGramos(data.original_cantidad ?? 1);
+            } else {
+                setUnidad('gramos');
+                setGramos(data.gramos ?? 100);
+            }
+        }
+        loadLog();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [editingLogId]);
 
     useEffect(() => {
         if (search.length < 2) {
@@ -332,6 +372,26 @@ function AddFoodContent() {
                 return;
             }
 
+            const newGramos = unidad === 'gramos' ? gramos : (gramos * (selectedFood.porcion_gramos || 100));
+            const newOriginalCantidad = gramos;
+            const newOriginalUnidad = unidad === 'gramos' ? 'gramos' : (selectedFood.porcion_nombre || 'porcion');
+
+            // ─── EDIT MODE: update existing log ───────────────────────────────
+            if (editMode && editingLogId) {
+                const { error } = await supabase.from('food_logs').update({
+                    gramos: newGramos,
+                    original_cantidad: newOriginalCantidad,
+                    original_unidad: newOriginalUnidad
+                }).eq('id', editingLogId);
+                if (error) {
+                    alert(`Error al guardar: ${error.message}`);
+                    return;
+                }
+                router.push(`/?date=${targetDate}`);
+                return;
+            }
+
+            // ─── ADD MODE: insert new log ─────────────────────────────────────
             let targetFoodId = selectedFood.type === 'recipe' ? null : selectedFood.id;
             let targetRecipeId = selectedFood.type === 'recipe' ? selectedFood.id : null;
 
@@ -370,10 +430,10 @@ function AddFoodContent() {
                 food_id: targetFoodId,
                 recipe_id: targetRecipeId,
                 comida_tipo: (mealType || "Almuerzo") as any,
-                gramos: unidad === 'gramos' ? gramos : (gramos * (selectedFood.porcion_gramos || 100)),
+                gramos: newGramos,
                 fecha: targetDate,
-                original_cantidad: gramos,
-                original_unidad: unidad === 'gramos' ? 'gramos' : (selectedFood.porcion_nombre || 'porcion')
+                original_cantidad: newOriginalCantidad,
+                original_unidad: newOriginalUnidad
             });
 
             // FALLBACK: If columns are missing
@@ -384,7 +444,7 @@ function AddFoodContent() {
                     food_id: targetFoodId,
                     recipe_id: targetRecipeId,
                     comida_tipo: (mealType || "Almuerzo") as any,
-                    gramos: unidad === 'gramos' ? gramos : (gramos * (selectedFood.porcion_gramos || 100)),
+                    gramos: newGramos,
                     fecha: targetDate,
                 });
                 error = fallbackError;
@@ -982,7 +1042,7 @@ function AddFoodContent() {
 
                         <div className="flex gap-3">
                             <button
-                                onClick={() => setSelectedFood(null)}
+                                onClick={() => editMode ? router.push(`/?date=${targetDate}`) : setSelectedFood(null)}
                                 className="w-16 h-16 bg-red-900/20 border border-red-500/20 rounded-full flex items-center justify-center group active:scale-90 transition-transform"
                             >
                                 <Trash2 className="w-6 h-6 text-red-500" />
@@ -991,7 +1051,7 @@ function AddFoodContent() {
                                 onClick={handleAdd}
                                 className="flex-1 bg-linear-to-r from-fuchsia-500 to-blue-500 h-16 rounded-full text-white font-extrabold text-lg flex items-center justify-center gap-2 shadow-xl shadow-fuchsia-500/20 hover:scale-[1.01] active:scale-95 transition-all"
                             >
-                                <span>Añadir</span>
+                                <span>{editMode ? 'Guardar cambios' : 'Añadir'}</span>
                                 <ChevronDown className="w-5 h-5 transition-transform group-hover:translate-y-1" />
                             </button>
                         </div>

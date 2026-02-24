@@ -142,13 +142,7 @@ function DayContent({
   const router = useRouter();
   const [copying, setCopying] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [editingLogData, setEditingLogData] = useState<{
-    id: string;
-    nombre: string;
-    gramos: number;
-    kcal: number;
-    baseKcalPer100g: number;
-  } | null>(null);
+
 
   const { logs, refetch, setLogs } = useFoodLogs(userId || undefined, date);
   const { toggleConsumed, toggleAllConsumed, renameMealType, deleteMealLogs } = useFoodLogActions();
@@ -260,33 +254,9 @@ function DayContent({
   };
 
   const handleEditLog = (id: string) => {
-    const log = logs.find(l => l.id === id);
-    if (!log) return;
-    const m = calculateLogMacros(log);
-    let baseKcal = 0;
-    if (log.food_items) {
-      baseKcal = Number(log.food_items.kcal);
-    } else if (log.recipes) {
-      const totalRecipeKcal = log.recipes.recipe_ingredients.reduce((acc: number, ing: any) => {
-        return acc + (ing.food_items.kcal * (ing.gramos / 100));
-      }, 0);
-      baseKcal = (totalRecipeKcal / log.recipes.porciones);
-    }
-
-    setEditingLogData({
-      id: log.id,
-      nombre: m.nombre,
-      gramos: log.gramos,
-      kcal: Math.round(m.kcal),
-      baseKcalPer100g: baseKcal
-    });
+    router.push(`/add-food?date=${date}&meal=${encodeURIComponent(logs.find(l => l.id === id)?.comida_tipo || '')}&logId=${id}`);
   };
 
-  const handleUpdateLog = async (id: string, newGramos: number) => {
-    const { error } = await supabase.from("food_logs").update({ gramos: newGramos }).eq("id", id);
-    if (error) throw error;
-    refetch();
-  };
 
   const handleToggleConsumed = async (id: string, currentStatus: boolean) => {
     setLogs((prev: any[]) => prev.map(l => l.id === id ? { ...l, consumido: !currentStatus } : l));
@@ -517,7 +487,6 @@ function DayContent({
       {userId && (
         <AISuggestion deficit={deficit} macros={{ p: 20, c: 20, g: 5 }} userId={userId} date={date} onPlanApplied={refetch} />
       )}
-      <EditLogModal isOpen={!!editingLogData} onClose={() => setEditingLogData(null)} log={editingLogData} onSave={handleUpdateLog} />
 
       <div className="fixed -left-[9999px] top-0 pointer-events-none overflow-hidden h-0">
         <div id={`share-summary-card-${date}`}>
