@@ -319,7 +319,20 @@ export function useFoodLogActions() {
         }
     };
 
-    return { toggleConsumed, toggleAllConsumed, renameMealType, deleteMealLogs };
+    const deleteAllLogsForDay = async (userId: string, date: string) => {
+        const { error } = await supabase
+            .from('food_logs')
+            .delete()
+            .eq('user_id', userId)
+            .eq('fecha', date);
+
+        if (error) {
+            console.error("Error deleting all logs for day:", error);
+            throw error;
+        }
+    };
+
+    return { toggleConsumed, toggleAllConsumed, renameMealType, deleteMealLogs, deleteAllLogsForDay };
 }
 
 export function useWaterLogs(userId?: string, date?: string) {

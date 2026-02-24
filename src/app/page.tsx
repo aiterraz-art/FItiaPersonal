@@ -146,7 +146,7 @@ function DayContent({
 
 
   const { logs, refetch, setLogs } = useFoodLogs(userId || undefined, date);
-  const { toggleConsumed, toggleAllConsumed, renameMealType, deleteMealLogs } = useFoodLogActions();
+  const { toggleConsumed, toggleAllConsumed, renameMealType, deleteMealLogs, deleteAllLogsForDay } = useFoodLogActions();
   const { glasses, addGlass, removeGlass } = useWaterLogs(userId || undefined, date);
 
   const lastHandledTrigger = useRef(shareTrigger);
@@ -256,6 +256,21 @@ function DayContent({
 
   const handleEditLog = (id: string) => {
     router.push(`/add-food?date=${date}&meal=${encodeURIComponent(logs.find(l => l.id === id)?.comida_tipo || '')}&logId=${id}`);
+  };
+
+  const handleDeleteAllLogs = async () => {
+    if (!userId || logs.length === 0) return;
+    if (!confirm("¿Seguro que querés borrar TODOS los alimentos de este día? Esta acción no se puede deshacer.")) return;
+
+    setCopying(true);
+    try {
+      await deleteAllLogsForDay(userId, date);
+      refetch();
+    } catch (e) {
+      alert("Error al borrar los registros.");
+    } finally {
+      setCopying(false);
+    }
   };
 
 
@@ -475,6 +490,12 @@ function DayContent({
             ) : (
               <span className="text-sm font-bold bg-gradient-to-r from-violet-400 to-blue-400 bg-clip-text text-transparent">Copiar dieta de otro día</span>
             )}
+          </button>
+        )}
+
+        {logs.length > 0 && (
+          <button onClick={handleDeleteAllLogs} disabled={copying} className="w-full mb-6 py-4 glass-card-subtle flex items-center justify-center gap-3 active:scale-[0.98] transition-all group border-red-500/20 hover:border-red-500/40">
+            <span className="text-sm font-bold text-red-400/80 group-hover:text-red-400 transition-colors">Borrar todo el día</span>
           </button>
         )}
 
