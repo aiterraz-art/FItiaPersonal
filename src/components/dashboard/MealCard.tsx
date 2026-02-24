@@ -136,7 +136,20 @@ function FoodLogItem({
                         item.consumido ? "opacity-40" : "opacity-100"
                     )}>
                         <p className="text-sm font-black">
-                            {formatQuantityDisplay(item.original_cantidad, item.original_unidad, item.gramos)}
+                            {(() => {
+                                const { original_cantidad: cantidad, original_unidad: unidad, gramos } = item;
+                                if (cantidad == null || !unidad || unidad === 'gramos') return `${gramos}g`;
+                                const match = unidad.match(/^(\d+\.?\d*)\s+(.+)$/);
+                                const unitDisplay = match
+                                    ? `${Math.round(cantidad * parseFloat(match[1]))} ${match[2]}`
+                                    : `${cantidad} ${unidad}`;
+                                return (
+                                    <span>
+                                        {unitDisplay}
+                                        <span className="text-zinc-500 font-bold text-[10px] ml-1">· {gramos}g</span>
+                                    </span>
+                                );
+                            })()}
                         </p>
                         <p className="text-[10px] text-zinc-500 font-bold">{item.kcal} kcal</p>
                     </div>
