@@ -683,8 +683,8 @@ function AddFoodContent() {
                             <AnimatePresence mode="popLayout">
                                 {(search.length > 0 ? results : (activeTab === 'recientes' ? history : savedRecipes)).map((food) => (
                                     <div key={food.id} className="relative group overflow-hidden rounded-2xl">
-                                        <div className="absolute inset-y-0 left-0 w-full bg-linear-to-r from-fuchsia-600 to-violet-600 flex items-center pl-6 z-0">
-                                            <PlusCircle className="w-6 h-6 text-white" />
+                                        <div className="absolute inset-y-0 left-0 w-full bg-zinc-900/50 flex items-center pl-6 z-0">
+                                            <PlusCircle className="w-6 h-6 text-fuchsia-500/50" />
                                         </div>
 
                                         <motion.div
