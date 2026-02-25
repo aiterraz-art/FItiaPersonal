@@ -35,7 +35,16 @@ function AddFoodContent() {
     const [loadingHistory, setLoadingHistory] = useState(false);
     const [aiLoading, setAiLoading] = useState(false);
     const [showCreateForm, setShowCreateForm] = useState(false);
-    const [newFood, setNewFood] = useState({ nombre: "", kcal: "", proteinas: "", carbohidratos: "", grasas: "", categoria: "Otros" });
+    const [newFood, setNewFood] = useState({
+        nombre: "",
+        kcal: "",
+        proteinas: "",
+        carbohidratos: "",
+        grasas: "",
+        categoria: "Otros",
+        porcion_nombre: "",
+        porcion_gramos: ""
+    });
     const [creating, setCreating] = useState(false);
     const [scanning, setScanning] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -92,23 +101,25 @@ function AddFoodContent() {
         }
 
         const timer = setTimeout(async () => {
-            const { data: foodItems } = await supabase
-                .from("food_items")
-                .select("*")
-                .ilike("nombre", `%${search}%`)
-                .limit(10);
+            const searchWords = search.trim().split(/\s+/).filter(w => w.length > 0);
 
-            const { data: recipes } = await supabase
-                .from("recipes")
-                .select(`
+            let foodQuery = supabase.from("food_items").select("*");
+            searchWords.forEach(word => {
+                foodQuery = foodQuery.ilike("nombre", `%${word}%`);
+            });
+            const { data: foodItems } = await foodQuery.limit(10);
+
+            let recipeQuery = supabase.from("recipes").select(`
+                *,
+                recipe_ingredients (
                     *,
-                    recipe_ingredients (
-                        *,
-                        food_items (*)
-                    )
-                `)
-                .ilike("nombre", `%${search}%`)
-                .limit(5);
+                    food_items (*)
+                )
+            `);
+            searchWords.forEach(word => {
+                recipeQuery = recipeQuery.ilike("nombre", `%${word}%`);
+            });
+            const { data: recipes } = await recipeQuery.limit(10);
 
             const combinedResults = [
                 ...(foodItems || []).map(f => ({ ...f, type: 'food' })),
@@ -501,6 +512,8 @@ function AddFoodContent() {
                 proteinas: Number(newFood.proteinas) || 0,
                 carbohidratos: Number(newFood.carbohidratos) || 0,
                 grasas: Number(newFood.grasas) || 0,
+                porcion_nombre: newFood.porcion_nombre.trim() || null,
+                porcion_gramos: Number(newFood.porcion_gramos) || null,
             }).select().single();
 
             if (error) {
@@ -508,7 +521,16 @@ function AddFoodContent() {
             } else if (data) {
                 setSelectedFood(data);
                 setShowCreateForm(false);
-                setNewFood({ nombre: "", kcal: "", proteinas: "", carbohidratos: "", grasas: "", categoria: "Otros" });
+                setNewFood({
+                    nombre: "",
+                    kcal: "",
+                    proteinas: "",
+                    carbohidratos: "",
+                    grasas: "",
+                    categoria: "Otros",
+                    porcion_nombre: "",
+                    porcion_gramos: ""
+                });
             }
         } catch (err) {
             console.error(err);
@@ -1015,6 +1037,7 @@ function AddFoodContent() {
                                         </div>
                                     ))}
                                 </div>
+
                                 <select
                                     value={newFood.categoria}
                                     onChange={(e) => setNewFood({ ...newFood, categoria: e.target.value })}
@@ -1024,6 +1047,34 @@ function AddFoodContent() {
                                         <option key={c} value={c}>{c}</option>
                                     ))}
                                 </select>
+
+                                {/* Optional Portion Fields */}
+                                <div className="space-y-3 pt-2 border-t border-white/5">
+                                    <h4 className="text-[10px] font-black uppercase tracking-wider text-zinc-500">Porción opcional (ej: 1 unidad = 30g)</h4>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-1">
+                                            <label className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider">Nombre</label>
+                                            <input
+                                                type="text"
+                                                placeholder="ej: unidad"
+                                                value={newFood.porcion_nombre}
+                                                onChange={(e) => setNewFood({ ...newFood, porcion_nombre: e.target.value })}
+                                                className="w-full bg-violet-500/5 border border-violet-500/15 rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-violet-500/50 font-medium"
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider">Gramos</label>
+                                            <input
+                                                type="number"
+                                                placeholder="0"
+                                                value={newFood.porcion_gramos}
+                                                onChange={(e) => setNewFood({ ...newFood, porcion_gramos: e.target.value })}
+                                                className="w-full bg-violet-500/5 border border-violet-500/15 rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-violet-500/50 font-bold text-center"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <button
                                     onClick={handleCreateFood}
                                     disabled={creating}
@@ -1280,7 +1331,8 @@ function AddFoodContent() {
                         </div>
                     </div>
                 </div>
-            )}
-        </main>
+            )
+            }
+        </main >
     );
 }
