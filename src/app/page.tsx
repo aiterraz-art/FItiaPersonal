@@ -451,23 +451,36 @@ function DayContent({
 
       <section className="px-6 py-2">
         <Reorder.Group axis="y" values={orderedMealNames} onReorder={handleReorderMeals} className="space-y-0">
-          {orderedMealNames.map((meal, index) => (
-            <MealReorderItem
-              key={meal}
-              meal={meal}
-              index={index}
-              orderedMealNames={orderedMealNames}
-              logs={logs}
-              selectedDate={date}
-              handleDeleteLog={handleDeleteLog}
-              handleEditLog={handleEditLog}
-              handleToggleConsumed={handleToggleConsumed}
-              handleToggleAllConsumed={handleToggleAllConsumed}
-              handleMoveMeal={handleMoveMeal}
-              handleRenameMeal={handleRenameMeal}
-              handleRemoveMeal={handleRemoveMeal}
-            />
-          ))}
+          <AnimatePresence mode="popLayout">
+            {orderedMealNames.map((meal, index) => (
+              <motion.div
+                key={meal}
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{
+                  delay: index * 0.1,
+                  type: "spring",
+                  stiffness: 400,
+                  damping: 30
+                }}
+              >
+                <MealReorderItem
+                  meal={meal}
+                  index={index}
+                  orderedMealNames={orderedMealNames}
+                  logs={logs}
+                  selectedDate={date}
+                  handleDeleteLog={handleDeleteLog}
+                  handleEditLog={handleEditLog}
+                  handleToggleConsumed={handleToggleConsumed}
+                  handleToggleAllConsumed={handleToggleAllConsumed}
+                  handleMoveMeal={handleMoveMeal}
+                  handleRenameMeal={handleRenameMeal}
+                  handleRemoveMeal={handleRemoveMeal}
+                />
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </Reorder.Group>
 
         <button
@@ -488,7 +501,7 @@ function DayContent({
             {copied ? (
               <span className="text-sm font-bold text-fuchsia-400">¡Dieta copiada!</span>
             ) : (
-              <span className="text-sm font-bold bg-gradient-to-r from-violet-400 to-blue-400 bg-clip-text text-transparent">Copiar dieta de otro día</span>
+              <span className="text-sm font-bold bg-linear-to-r from-violet-400 to-blue-400 bg-clip-text text-transparent">Copiar dieta de otro día</span>
             )}
           </button>
         )}

@@ -823,8 +823,16 @@ function AddFoodContent() {
                         )}
 
                         {search.length === 0 && loadingHistory && activeTab === 'recientes' && (
-                            <div className="py-4 text-center">
-                                <div className="w-5 h-5 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin mx-auto" />
+                            <div className="space-y-3">
+                                {[1, 2, 3].map((i) => (
+                                    <div key={i} className="w-full h-[60px] rounded-xl glass-card-subtle flex items-center gap-3 p-2">
+                                        <div className="w-9 h-9 rounded-lg skeleton" />
+                                        <div className="flex-1 space-y-2">
+                                            <div className="w-24 h-3 skeleton" />
+                                            <div className="w-16 h-2 skeleton" />
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         )}
 
@@ -841,9 +849,17 @@ function AddFoodContent() {
                         )}
 
                         {aiLoading && (
-                            <div className="py-12 text-center">
-                                <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                                <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest animate-pulse">Consultando a Elite Nutrition AI...</p>
+                            <div className="space-y-3 py-4">
+                                {[1, 2, 3, 4].map((i) => (
+                                    <div key={i} className="w-full h-[60px] rounded-xl glass-card-subtle flex items-center gap-3 p-2">
+                                        <div className="w-9 h-9 rounded-lg skeleton" />
+                                        <div className="flex-1 space-y-2">
+                                            <div className="w-32 h-3 skeleton" />
+                                            <div className="w-20 h-2 skeleton" />
+                                        </div>
+                                    </div>
+                                ))}
+                                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest text-center animate-pulse mt-4">Consultando a Elite Nutrition AI...</p>
                             </div>
                         )}
 
@@ -859,7 +875,13 @@ function AddFoodContent() {
                                             layout
                                             initial={{ opacity: 0, y: 20 }}
                                             animate={{ opacity: 1, y: 0 }}
-                                            exit={{ opacity: 0, scale: 0.9 }}
+                                            exit={{ opacity: 0, scale: 0.95 }}
+                                            transition={{
+                                                type: "spring",
+                                                stiffness: 500,
+                                                damping: 30,
+                                                mass: 1
+                                            }}
                                             drag="x"
                                             dragConstraints={{ left: 0, right: 0 }}
                                             dragElastic={0.6}
@@ -902,11 +924,14 @@ function AddFoodContent() {
                                                 )}
                                             >
                                                 <div className="flex items-center gap-2.5">
-                                                    <div className="w-9 h-9 shrink-0 rounded-lg bg-linear-to-br from-violet-600 via-violet-500 to-blue-500 flex items-center justify-center text-lg shadow-xl shadow-violet-500/30">
+                                                    <motion.div
+                                                        layoutId={`food-icon-${food.id}`}
+                                                        className="w-9 h-9 shrink-0 rounded-lg bg-linear-to-br from-violet-600 via-violet-500 to-blue-500 flex items-center justify-center text-lg shadow-xl shadow-violet-500/30"
+                                                    >
                                                         {food.isAI ? '🌐' : (food.type === 'recipe' ? '👨‍🍳' : '🍽️')}
-                                                    </div>
+                                                    </motion.div>
                                                     <div className="text-left">
-                                                        <p className="font-bold text-[13px] flex items-center gap-1.5 leading-tight">
+                                                        <motion.p layoutId={`food-name-${food.id}`} className="font-bold text-[13px] flex items-center gap-1.5 leading-tight">
                                                             {food.nombre}
                                                             {food.type === 'recipe' && (
                                                                 <span className="px-1 py-0.5 rounded bg-violet-500/20 text-violet-300 text-[7px] font-black uppercase tracking-wider border border-violet-500/30">RECETA</span>
@@ -917,7 +942,7 @@ function AddFoodContent() {
                                                             {search.length === 0 && !food.isAI && (
                                                                 <span className="px-1 py-0.5 rounded bg-zinc-500/20 text-zinc-400 text-[7px] font-black uppercase tracking-wider border border-zinc-500/30">RECIENTE</span>
                                                             )}
-                                                        </p>
+                                                        </motion.p>
                                                         <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-tight mt-0.5">
                                                             {food.type === 'recipe' ? `${food.porciones} porciones` : (food.estado || 'n/a')}
                                                             {food.porcion_nombre && ` • 1 porción = ${food.porcion_gramos}g`}
@@ -951,7 +976,7 @@ function AddFoodContent() {
                     <div className="mt-6">
                         <button
                             onClick={() => setShowCreateForm(!showCreateForm)}
-                            className="w-full py-4 bg-gradient-to-r from-violet-600/10 to-blue-600/10 border border-violet-500/20 rounded-2xl flex items-center justify-center gap-3 active:scale-[0.98] transition-all group hover:border-violet-500/40"
+                            className="w-full py-4 bg-linear-to-r from-violet-600/10 to-blue-600/10 border border-violet-500/20 rounded-2xl flex items-center justify-center gap-3 active:scale-[0.98] transition-all group hover:border-violet-500/40"
                         >
                             <PlusCircle className="w-5 h-5 text-violet-400 transition-transform group-hover:rotate-90" />
                             <span className="text-sm font-bold text-violet-100 group-hover:text-white transition-colors">
@@ -1020,13 +1045,18 @@ function AddFoodContent() {
             ) : (
                 <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-48">
                     <div className="flex flex-col items-center text-center">
-                        <div className="w-20 h-20 bg-zinc-900/50 rounded-full flex items-center justify-center mb-6 border border-white/5 backdrop-blur-sm relative">
-                            <Search className="w-8 h-8 text-zinc-500" />
-                            <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-1 border border-black">
+                        <motion.div
+                            layoutId={`food-icon-${selectedFood.id}`}
+                            className="w-20 h-20 bg-linear-to-br from-violet-600 via-violet-500 to-blue-500 rounded-full flex items-center justify-center mb-6 shadow-2xl shadow-violet-500/30 relative"
+                        >
+                            <span className="text-4xl">
+                                {selectedFood.isAI ? '🌐' : (selectedFood.type === 'recipe' ? '👨‍🍳' : '🍽️')}
+                            </span>
+                            <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-1 border border-black shadow-lg">
                                 <ChevronDown className="w-3 h-3 text-black" />
                             </div>
-                        </div>
-                        <h2 className="text-3xl font-extrabold mb-1">{selectedFood.nombre}</h2>
+                        </motion.div>
+                        <motion.h2 layoutId={`food-name-${selectedFood.id}`} className="text-3xl font-extrabold mb-1 tracking-tight">{selectedFood.nombre}</motion.h2>
                         <p className="text-zinc-500 font-bold text-sm">Genérico</p>
                         <p className="text-[10px] text-zinc-500 font-bold mt-6 uppercase tracking-[0.2em]">
                             {(() => {

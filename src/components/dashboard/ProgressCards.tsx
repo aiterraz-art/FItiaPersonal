@@ -72,7 +72,7 @@ export function CalorieArc({ current, planned, target }: CalorieArcProps) {
                 <div className="flex flex-col items-center justify-center">
                     <div className="flex items-baseline gap-1.5 translate-y-1">
                         <span className={cn(
-                            "font-black tracking-tighter bg-gradient-to-r from-fuchsia-400 to-blue-400 bg-clip-text text-transparent leading-none",
+                            "font-black tracking-tighter bg-linear-to-r from-fuchsia-400 to-blue-400 bg-clip-text text-transparent leading-none animate-in fade-in zoom-in duration-1000",
                             current > 9999 ? "text-3xl" : "text-5xl"
                         )}>
                             {new Intl.NumberFormat().format(current)}

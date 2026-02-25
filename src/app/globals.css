@@ -30,24 +30,46 @@ body {
 }
 
 .glass-card {
-  background: linear-gradient(135deg, rgba(217, 70, 239, 0.12) 0%, rgba(59, 130, 246, 0.08) 50%, rgba(0, 0, 0, 0.8) 100%);
-  backdrop-filter: blur(32px);
-  border: 1px solid rgba(217, 70, 239, 0.2);
+  background: linear-gradient(165deg, rgba(217, 70, 239, 0.15) 0%, rgba(59, 130, 246, 0.08) 40%, rgba(0, 0, 0, 0.85) 100%);
+  backdrop-filter: blur(40px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-top-color: rgba(255, 255, 255, 0.2);
+  border-left-color: rgba(255, 255, 255, 0.15);
   border-radius: 32px;
   box-shadow:
-    0 12px 48px rgba(0, 0, 0, 0.8),
-    inset 0 1px 0 rgba(217, 70, 239, 0.15);
+    0 20px 50px rgba(0, 0, 0, 0.9),
+    inset 0 1px 1px rgba(255, 255, 255, 0.1);
 }
 
 .glass-card-subtle {
-  background: linear-gradient(135deg, rgba(217, 70, 239, 0.08) 0%, rgba(5, 5, 10, 0.6) 100%);
+  background: rgba(255, 255, 255, 0.03);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(217, 70, 239, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 24px;
 }
 
+@keyframes skeletonPulse {
+  0% {
+    opacity: 0.1;
+  }
+
+  50% {
+    opacity: 0.2;
+  }
+
+  100% {
+    opacity: 0.1;
+  }
+}
+
+.skeleton {
+  background: rgba(255, 255, 255, 0.5);
+  animation: skeletonPulse 1.5s ease-in-out infinite;
+  border-radius: 8px;
+}
+
 .accent-glow {
-  box-shadow: 0 0 35px rgba(217, 70, 239, 0.4), 0 0 70px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 0 40px rgba(217, 70, 239, 0.3), 0 0 80px rgba(59, 130, 246, 0.15);
 }
 
 .neon-border {
