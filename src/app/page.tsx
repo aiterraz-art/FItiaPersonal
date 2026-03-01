@@ -56,6 +56,20 @@ const calculateLogMacros = (log: any) => {
   return { kcal: 0, p: 0, c: 0, g: 0, nombre: "Desconocido", info: "" };
 };
 
+const addDaysToDateString = (dateCode: string, diffDays: number) => {
+  const d = new Date(dateCode + "T12:00:00");
+  d.setDate(d.getDate() + diffDays);
+  return formatDateAsLocalISO(d);
+};
+
+const buildDateWindow = (centerDate: string, beforeDays = 14, afterDays = 14) => {
+  const days: string[] = [];
+  for (let i = -beforeDays; i <= afterDays; i++) {
+    days.push(addDaysToDateString(centerDate, i));
+  }
+  return days;
+};
+
 function MealReorderItem({
   meal,
   index,
@@ -561,16 +575,20 @@ function Dashboard() {
   const [shareTrigger, setShareTrigger] = useState(0);
   const dayContentControls = useAnimationControls();
   const previousDateRef = useRef<string | null>(null);
+  const carouselRef = useRef<HTMLDivElement | null>(null);
+  const carouselItemRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const isExtendingCarouselRef = useRef(false);
 
   const dateParam = searchParams.get("date");
   const [selectedDate, setSelectedDate] = useState(dateParam || getTodayLocalDate());
   const [direction, setDirection] = useState(0);
+  const [carouselDates, setCarouselDates] = useState<string[]>(() => buildDateWindow(dateParam || getTodayLocalDate()));
 
   useEffect(() => {
     if (dateParam && dateParam !== selectedDate) {
       setSelectedDate(dateParam);
     }
-  }, [dateParam]);
+  }, [dateParam, selectedDate]);
 
   // Proactive Multi-Day Preloading (±3 days)
   usePreloader(userId, selectedDate);
@@ -614,24 +632,73 @@ function Dashboard() {
     previousDateRef.current = selectedDate;
   }, [selectedDate, direction, dayContentControls]);
 
+  useEffect(() => {
+    setCarouselDates(prev => (prev.includes(selectedDate) ? prev : buildDateWindow(selectedDate)));
+  }, [selectedDate]);
+
+  useEffect(() => {
+    const item = carouselItemRefs.current[selectedDate];
+    if (!item) return;
+    item.scrollIntoView({
+      behavior: previousDateRef.current === null ? "auto" : "smooth",
+      block: "nearest",
+      inline: "center"
+    });
+  }, [selectedDate, carouselDates]);
+
+  const handleInfiniteCarouselScroll = () => {
+    const node = carouselRef.current;
+    if (!node || isExtendingCarouselRef.current || carouselDates.length === 0) return;
+
+    const edgeThresholdPx = 120;
+    const appendBatch = 14;
+    const remainingRightPx = node.scrollWidth - (node.scrollLeft + node.clientWidth);
+
+    if (node.scrollLeft < edgeThresholdPx) {
+      isExtendingCarouselRef.current = true;
+      const oldScrollWidth = node.scrollWidth;
+
+      setCarouselDates(prev => {
+        const first = prev[0];
+        const prepend = Array.from({ length: appendBatch }, (_, idx) =>
+          addDaysToDateString(first, -(appendBatch - idx))
+        );
+        return [...prepend, ...prev];
+      });
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const currentNode = carouselRef.current;
+          if (currentNode) {
+            const widthDiff = currentNode.scrollWidth - oldScrollWidth;
+            currentNode.scrollLeft += widthDiff;
+          }
+          isExtendingCarouselRef.current = false;
+        });
+      });
+      return;
+    }
+
+    if (remainingRightPx < edgeThresholdPx) {
+      isExtendingCarouselRef.current = true;
+      setCarouselDates(prev => {
+        const last = prev[prev.length - 1];
+        const append = Array.from({ length: appendBatch }, (_, idx) =>
+          addDaysToDateString(last, idx + 1)
+        );
+        return [...prev, ...append];
+      });
+      requestAnimationFrame(() => {
+        isExtendingCarouselRef.current = false;
+      });
+    }
+  };
+
   const handleDateChange = (newDate: string) => {
     const oldTime = new Date(selectedDate + "T12:00:00").getTime();
     const newTime = new Date(newDate + "T12:00:00").getTime();
     setDirection(newTime > oldTime ? 1 : -1);
     setSelectedDate(newDate);
-  };
-
-  const getCarouselDays = () => {
-    const baseDate = new Date(selectedDate + "T12:00:00");
-    return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(baseDate);
-      d.setDate(baseDate.getDate() - 3 + i);
-      return {
-        day: ["D", "L", "M", "M", "J", "V", "S"][d.getDay()],
-        date: d.getDate(),
-        full: formatDateAsLocalISO(d)
-      };
-    });
   };
 
   return (
@@ -660,47 +727,34 @@ function Dashboard() {
           </div>
         </div>
 
-        <div className="relative overflow-hidden px-2 h-20">
-          <AnimatePresence initial={false} custom={direction}>
-            <motion.div
-              key={selectedDate}
-              custom={direction}
-              variants={{
-                enter: (d: number) => ({ x: d > 0 ? "100%" : d < 0 ? "-100%" : 0, opacity: 0 }),
-                center: { x: 0, opacity: 1 },
-                exit: (d: number) => ({ x: d < 0 ? "100%" : d > 0 ? "-100%" : 0, opacity: 0 })
-              }}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={{ x: { type: "spring", stiffness: 300, damping: 30 }, opacity: { duration: 0.2 } }}
-              drag="x"
-              dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={0.5}
-              onDragEnd={(_, info) => {
-                if (info.offset.x > 50) {
-                  const d = new Date(selectedDate + "T12:00:00");
-                  d.setDate(d.getDate() - 1);
-                  handleDateChange(formatDateAsLocalISO(d));
-                } else if (info.offset.x < -50) {
-                  const d = new Date(selectedDate + "T12:00:00");
-                  d.setDate(d.getDate() + 1);
-                  handleDateChange(formatDateAsLocalISO(d));
-                }
-              }}
-              className="absolute inset-x-2 flex justify-between items-center cursor-grab active:cursor-grabbing pb-4"
-            >
-              {getCarouselDays().map((item) => {
-                const isSelected = selectedDate === item.full;
-                return (
-                  <button key={item.full} onClick={() => handleDateChange(item.full)} className="flex flex-col items-center gap-2 focus:outline-none group shrink-0 w-[14.28%]">
-                    <span className={cn("text-[10px] font-bold uppercase", isSelected ? "text-fuchsia-400" : "text-zinc-500")}>{item.day}</span>
-                    <div className={cn("w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all", isSelected ? "bg-linear-to-r from-fuchsia-500 to-blue-500 text-white scale-110 shadow-lg shadow-fuchsia-500/30" : "text-white hover:bg-fuchsia-500/10")}>{item.date}</div>
-                  </button>
-                );
-              })}
-            </motion.div>
-          </AnimatePresence>
+        <div className="px-2 h-20">
+          <div
+            ref={carouselRef}
+            onScroll={handleInfiniteCarouselScroll}
+            className="h-full flex items-center gap-2 overflow-x-auto px-1 pb-4 snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {carouselDates.map((dateCode) => {
+              const d = new Date(dateCode + "T12:00:00");
+              const isSelected = selectedDate === dateCode;
+              return (
+                <button
+                  key={dateCode}
+                  ref={(el) => {
+                    carouselItemRefs.current[dateCode] = el;
+                  }}
+                  onClick={() => handleDateChange(dateCode)}
+                  className="flex flex-col items-center gap-2 focus:outline-none group shrink-0 w-10 snap-center"
+                >
+                  <span className={cn("text-[10px] font-bold uppercase", isSelected ? "text-fuchsia-400" : "text-zinc-500")}>
+                    {["D", "L", "M", "M", "J", "V", "S"][d.getDay()]}
+                  </span>
+                  <div className={cn("w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all", isSelected ? "bg-linear-to-r from-fuchsia-500 to-blue-500 text-white scale-110 shadow-lg shadow-fuchsia-500/30" : "text-white hover:bg-fuchsia-500/10")}>
+                    {d.getDate()}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </header>
 
