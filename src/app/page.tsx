@@ -578,6 +578,10 @@ function Dashboard() {
   const carouselRef = useRef<HTMLDivElement | null>(null);
   const carouselItemRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const isExtendingCarouselRef = useRef(false);
+  const carouselPointerStartXRef = useRef<number | null>(null);
+  const carouselDragIntentRef = useRef(false);
+  const suppressCarouselTapRef = useRef(false);
+  const carouselTapTimeoutRef = useRef<number | null>(null);
 
   const dateParam = searchParams.get("date");
   const [selectedDate, setSelectedDate] = useState(dateParam || getTodayLocalDate());
@@ -637,6 +641,14 @@ function Dashboard() {
   }, [selectedDate]);
 
   useEffect(() => {
+    return () => {
+      if (carouselTapTimeoutRef.current) {
+        window.clearTimeout(carouselTapTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     const item = carouselItemRefs.current[selectedDate];
     if (!item) return;
     item.scrollIntoView({
@@ -694,6 +706,32 @@ function Dashboard() {
     }
   };
 
+  const handleCarouselPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    carouselPointerStartXRef.current = event.clientX;
+    carouselDragIntentRef.current = false;
+  };
+
+  const handleCarouselPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (carouselPointerStartXRef.current === null) return;
+    if (Math.abs(event.clientX - carouselPointerStartXRef.current) > 8) {
+      carouselDragIntentRef.current = true;
+    }
+  };
+
+  const handleCarouselPointerEnd = () => {
+    if (carouselDragIntentRef.current) {
+      suppressCarouselTapRef.current = true;
+      if (carouselTapTimeoutRef.current) {
+        window.clearTimeout(carouselTapTimeoutRef.current);
+      }
+      carouselTapTimeoutRef.current = window.setTimeout(() => {
+        suppressCarouselTapRef.current = false;
+      }, 140);
+    }
+    carouselPointerStartXRef.current = null;
+    carouselDragIntentRef.current = false;
+  };
+
   const handleDateChange = (newDate: string) => {
     const oldTime = new Date(selectedDate + "T12:00:00").getTime();
     const newTime = new Date(newDate + "T12:00:00").getTime();
@@ -731,6 +769,10 @@ function Dashboard() {
           <div
             ref={carouselRef}
             onScroll={handleInfiniteCarouselScroll}
+            onPointerDown={handleCarouselPointerDown}
+            onPointerMove={handleCarouselPointerMove}
+            onPointerUp={handleCarouselPointerEnd}
+            onPointerCancel={handleCarouselPointerEnd}
             className="h-full flex items-center gap-2 overflow-x-auto px-1 pb-4 snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
             {carouselDates.map((dateCode) => {
@@ -742,7 +784,10 @@ function Dashboard() {
                   ref={(el) => {
                     carouselItemRefs.current[dateCode] = el;
                   }}
-                  onClick={() => handleDateChange(dateCode)}
+                  onClick={() => {
+                    if (suppressCarouselTapRef.current) return;
+                    handleDateChange(dateCode);
+                  }}
                   className="flex flex-col items-center gap-2 focus:outline-none group shrink-0 w-10 snap-center"
                 >
                   <span className={cn("text-[10px] font-bold uppercase", isSelected ? "text-fuchsia-400" : "text-zinc-500")}>
