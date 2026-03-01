@@ -7,6 +7,25 @@ import { formatDateAsLocalISO, getTodayLocalDate } from '@/lib/utils';
 const PRELOAD_RADIUS_DAYS = 5;
 const hasCacheKey = (record: Record<string, unknown>, key: string) =>
     Object.prototype.hasOwnProperty.call(record, key);
+const dedupeFoodLogsById = (logs: any[]) => {
+    const seen = new Set<string>();
+    return logs.filter(log => {
+        const id = String(log?.id ?? '');
+        if (!id || seen.has(id)) return false;
+        seen.add(id);
+        return true;
+    });
+};
+const dedupeIds = (ids: string[]) => {
+    const seen = new Set<string>();
+    const output: string[] = [];
+    ids.forEach(id => {
+        if (seen.has(id)) return;
+        seen.add(id);
+        output.push(id);
+    });
+    return output;
+};
 
 // In-memory cache to prevent 0-reset flickering during day transitions
 const globalCache: {
@@ -46,6 +65,12 @@ export function usePreloader(userId: string | null, centerDate: string) {
 
             const startDate = datesToLoad[0];
             const endDate = datesToLoad[datesToLoad.length - 1];
+            const rangeDates: string[] = [];
+            const start = new Date(startDate + "T12:00:00");
+            const end = new Date(endDate + "T12:00:00");
+            for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                rangeDates.push(formatDateAsLocalISO(new Date(d)));
+            }
 
             const [foodRes, waterRes] = await Promise.all([
                 supabase
@@ -89,20 +114,38 @@ export function usePreloader(userId: string | null, centerDate: string) {
 
             const foodData = foodRes.data;
             if (foodData) {
+                rangeDates.forEach(d => {
+                    globalCache.foodLogs[`${userId}:${d}`] = [];
+                });
                 foodData.forEach(log => {
                     const k = `${userId}:${log.fecha}`;
                     if (!globalCache.foodLogs[k]) globalCache.foodLogs[k] = [];
                     globalCache.foodLogs[k].push(log);
                 });
+                rangeDates.forEach(d => {
+                    const key = `${userId}:${d}`;
+                    globalCache.foodLogs[key] = dedupeFoodLogsById(globalCache.foodLogs[key] || []);
+                });
             }
 
             const waterData = waterRes.data;
             if (waterData) {
+                rangeDates.forEach(d => {
+                    const key = `${userId}:${d}`;
+                    globalCache.waterLogs[key] = 0;
+                    globalCache.waterLogIds[key] = [];
+                });
                 waterData.forEach(log => {
                     const k = `${userId}:${log.fecha}`;
                     globalCache.waterLogs[k] = (globalCache.waterLogs[k] || 0) + 1;
                     if (!globalCache.waterLogIds[k]) globalCache.waterLogIds[k] = [];
                     globalCache.waterLogIds[k].push(log.id);
+                });
+                rangeDates.forEach(d => {
+                    const key = `${userId}:${d}`;
+                    const deduped = dedupeIds(globalCache.waterLogIds[key] || []);
+                    globalCache.waterLogIds[key] = deduped;
+                    globalCache.waterLogs[key] = deduped.length;
                 });
             }
         }
@@ -226,7 +269,7 @@ export function useProfile(userId?: string) {
 export function useFoodLogs(userId?: string, date?: string) {
     const cacheKey = `${userId}:${date}`;
     const hasCachedLogs = Boolean(date && hasCacheKey(globalCache.foodLogs, cacheKey));
-    const [logs, setLogs] = useState<any[]>(hasCachedLogs ? globalCache.foodLogs[cacheKey] : []);
+    const [logs, setLogs] = useState<any[]>(hasCachedLogs ? dedupeFoodLogsById(globalCache.foodLogs[cacheKey]) : []);
     const [loading, setLoading] = useState(Boolean(date && !hasCachedLogs));
 
     const fetchLogs = useCallback(async ({ force = false, background = false } = {}) => {
@@ -235,7 +278,9 @@ export function useFoodLogs(userId?: string, date?: string) {
         const cached = hasCacheKey(globalCache.foodLogs, cacheKey);
         if (cached && !force) {
             if (!background) {
-                setLogs(globalCache.foodLogs[cacheKey]);
+                const cachedLogs = dedupeFoodLogsById(globalCache.foodLogs[cacheKey] || []);
+                globalCache.foodLogs[cacheKey] = cachedLogs;
+                setLogs(cachedLogs);
                 setLoading(false);
             }
             return;
@@ -261,7 +306,7 @@ export function useFoodLogs(userId?: string, date?: string) {
         if (error) {
             console.error("Error fetching food logs:", error);
         }
-        const nextData = data || [];
+        const nextData = dedupeFoodLogsById(data || []);
         globalCache.foodLogs[cacheKey] = nextData;
         setLogs(nextData);
         if (!background) setLoading(false);
@@ -275,7 +320,9 @@ export function useFoodLogs(userId?: string, date?: string) {
         }
 
         if (hasCacheKey(globalCache.foodLogs, cacheKey)) {
-            setLogs(globalCache.foodLogs[cacheKey]);
+            const cachedLogs = dedupeFoodLogsById(globalCache.foodLogs[cacheKey] || []);
+            globalCache.foodLogs[cacheKey] = cachedLogs;
+            setLogs(cachedLogs);
             setLoading(false);
             fetchLogs({ force: true, background: true });
             return;
@@ -290,13 +337,14 @@ export function useFoodLogs(userId?: string, date?: string) {
         logs, loading, refetch: fetchLogs, setLogs: (newLogsOrFn: any) => {
             if (typeof newLogsOrFn === 'function') {
                 setLogs(prev => {
-                    const next = newLogsOrFn(prev);
+                    const next = dedupeFoodLogsById(newLogsOrFn(prev));
                     if (date) globalCache.foodLogs[cacheKey] = next;
                     return next;
                 });
             } else {
-                if (date) globalCache.foodLogs[cacheKey] = newLogsOrFn;
-                setLogs(newLogsOrFn);
+                const next = dedupeFoodLogsById(newLogsOrFn || []);
+                if (date) globalCache.foodLogs[cacheKey] = next;
+                setLogs(next);
             }
         }
     };
@@ -380,8 +428,8 @@ export function useWaterLogs(userId?: string, date?: string) {
         hasCacheKey(globalCache.waterLogs, cacheKey) &&
         hasCacheKey(globalCache.waterLogIds, cacheKey)
     );
-    const [glasses, setGlasses] = useState(hasCachedWater ? globalCache.waterLogs[cacheKey] : 0);
-    const [waterLogIds, setWaterLogIds] = useState<string[]>(hasCachedWater ? globalCache.waterLogIds[cacheKey] : []);
+    const [glasses, setGlasses] = useState(hasCachedWater ? dedupeIds(globalCache.waterLogIds[cacheKey]).length : 0);
+    const [waterLogIds, setWaterLogIds] = useState<string[]>(hasCachedWater ? dedupeIds(globalCache.waterLogIds[cacheKey]) : []);
     const [loading, setLoading] = useState(Boolean(date && !hasCachedWater));
 
     const fetchWater = useCallback(async ({ force = false, background = false } = {}) => {
@@ -390,8 +438,11 @@ export function useWaterLogs(userId?: string, date?: string) {
         const cached = hasCacheKey(globalCache.waterLogs, cacheKey) && hasCacheKey(globalCache.waterLogIds, cacheKey);
         if (cached && !force) {
             if (!background) {
-                setGlasses(globalCache.waterLogs[cacheKey] || 0);
-                setWaterLogIds(globalCache.waterLogIds[cacheKey] || []);
+                const ids = dedupeIds(globalCache.waterLogIds[cacheKey] || []);
+                globalCache.waterLogIds[cacheKey] = ids;
+                globalCache.waterLogs[cacheKey] = ids.length;
+                setGlasses(ids.length);
+                setWaterLogIds(ids);
                 setLoading(false);
             }
             return;
@@ -410,10 +461,10 @@ export function useWaterLogs(userId?: string, date?: string) {
         }
 
         const rows = data || [];
-        const count = rows.length;
-        const ids = rows.map(d => d.id);
-        globalCache.waterLogs[cacheKey] = count;
+        const ids = dedupeIds(rows.map(d => d.id));
+        const count = ids.length;
         globalCache.waterLogIds[cacheKey] = ids;
+        globalCache.waterLogs[cacheKey] = count;
         setGlasses(count);
         setWaterLogIds(ids);
         if (!background) setLoading(false);
@@ -429,8 +480,11 @@ export function useWaterLogs(userId?: string, date?: string) {
 
         const cached = hasCacheKey(globalCache.waterLogs, cacheKey) && hasCacheKey(globalCache.waterLogIds, cacheKey);
         if (cached) {
-            setGlasses(globalCache.waterLogs[cacheKey] || 0);
-            setWaterLogIds(globalCache.waterLogIds[cacheKey] || []);
+            const ids = dedupeIds(globalCache.waterLogIds[cacheKey] || []);
+            globalCache.waterLogIds[cacheKey] = ids;
+            globalCache.waterLogs[cacheKey] = ids.length;
+            setGlasses(ids.length);
+            setWaterLogIds(ids);
             setLoading(false);
             fetchWater({ force: true, background: true });
             return;
@@ -467,9 +521,12 @@ export function useWaterLogs(userId?: string, date?: string) {
             return;
         }
         if (data) {
-            const nextIds = [...waterLogIds, data.id];
+            const nextIds = dedupeIds([...waterLogIds, data.id]);
             setWaterLogIds(nextIds);
-            if (date) globalCache.waterLogIds[cacheKey] = nextIds;
+            if (date) {
+                globalCache.waterLogIds[cacheKey] = nextIds;
+                globalCache.waterLogs[cacheKey] = nextIds.length;
+            }
         }
     };
 
