@@ -70,6 +70,8 @@ const buildDateWindow = (centerDate: string, beforeDays = 14, afterDays = 14) =>
   return days;
 };
 
+const DASHBOARD_SCROLL_KEY = "fitia-dashboard-scroll-v1";
+
 function MealReorderItem({
   meal,
   index,
@@ -253,6 +255,22 @@ function DayContent({
       };
     });
 
+  const rememberDashboardScroll = () => {
+    if (typeof window === "undefined") return;
+    sessionStorage.setItem(
+      DASHBOARD_SCROLL_KEY,
+      JSON.stringify({ y: window.scrollY, date, ts: Date.now() })
+    );
+  };
+
+  const keepViewport = (scrollY: number) => {
+    if (typeof window === "undefined") return;
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: scrollY, behavior: "auto" });
+      requestAnimationFrame(() => window.scrollTo({ top: scrollY, behavior: "auto" }));
+    });
+  };
+
   const handleDeleteLog = async (id: string) => {
     if (!confirm("¿Seguro que querés eliminar este registro?")) return;
     const originalLogs = [...logs];
@@ -269,6 +287,7 @@ function DayContent({
   };
 
   const handleEditLog = (id: string) => {
+    rememberDashboardScroll();
     router.push(`/add-food?date=${date}&meal=${encodeURIComponent(logs.find(l => l.id === id)?.comida_tipo || '')}&logId=${id}`);
   };
 
@@ -383,6 +402,7 @@ function DayContent({
   }, [shareTrigger]);
 
   const handleMoveMeal = async (meal: string, direction: 'up' | 'down') => {
+    const currentScrollY = typeof window !== "undefined" ? window.scrollY : 0;
     const list = [...orderedMealNames];
     const index = list.indexOf(meal);
     if (index === -1) return;
@@ -393,15 +413,19 @@ function DayContent({
       await updateMealOrder(list);
       await refetchProfile();
       refetch();
+      keepViewport(currentScrollY);
     }
   };
 
   const handleReorderMeals = async (newOrder: string[]) => {
+    const currentScrollY = typeof window !== "undefined" ? window.scrollY : 0;
     setOrderedMealNames(newOrder);
     await updateMealOrder(newOrder);
+    keepViewport(currentScrollY);
   };
 
   const handleRemoveMeal = async (meal: string) => {
+    const currentScrollY = typeof window !== "undefined" ? window.scrollY : 0;
     if (!profile || !userId) return;
     if (!confirm(`¿Estás seguro de que quieres ocultar "${meal}"?`)) return;
     const originalUIOrder = [...orderedMealNames];
@@ -421,10 +445,13 @@ function DayContent({
     } catch (err) {
       setOrderedMealNames(originalUIOrder);
       alert(`No se pudo eliminar la comida.`);
+    } finally {
+      keepViewport(currentScrollY);
     }
   };
 
   const handleRenameMeal = async (oldName: string) => {
+    const currentScrollY = typeof window !== "undefined" ? window.scrollY : 0;
     const newName = prompt(`Renombrar "${oldName}" a:`, oldName);
     if (!newName || !newName.trim() || newName === oldName) return;
     const trimmedNewName = newName.trim();
@@ -440,6 +467,8 @@ function DayContent({
     } catch (err) {
       setOrderedMealNames(originalUIOrder);
       alert(`No se pudo renombrar la comida.`);
+    } finally {
+      keepViewport(currentScrollY);
     }
   };
 
@@ -501,6 +530,7 @@ function DayContent({
           onClick={() => {
             const name = prompt("Nombre de la nueva comida:");
             if (name && name.trim()) {
+              rememberDashboardScroll();
               router.push(`/add-food?date=${date}&meal=${encodeURIComponent(name.trim())}`);
             }
           }}
@@ -635,6 +665,25 @@ function Dashboard() {
     });
     previousDateRef.current = selectedDate;
   }, [selectedDate, direction, dayContentControls]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = sessionStorage.getItem(DASHBOARD_SCROLL_KEY);
+    if (!raw) return;
+
+    try {
+      const parsed = JSON.parse(raw) as { y: number; date?: string; ts?: number };
+      if (parsed.date && parsed.date !== selectedDate) return;
+      const y = Math.max(0, Number(parsed.y || 0));
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: y, behavior: "auto" });
+        requestAnimationFrame(() => window.scrollTo({ top: y, behavior: "auto" }));
+      });
+      sessionStorage.removeItem(DASHBOARD_SCROLL_KEY);
+    } catch {
+      sessionStorage.removeItem(DASHBOARD_SCROLL_KEY);
+    }
+  }, [selectedDate]);
 
   useEffect(() => {
     setCarouselDates(prev => (prev.includes(selectedDate) ? prev : buildDateWindow(selectedDate)));

@@ -422,7 +422,7 @@ function AddFoodContent() {
                     alert(`Error al guardar: ${error.message}`);
                     return;
                 }
-                router.push(`/?date=${targetDate}`);
+                router.push(`/?date=${targetDate}`, { scroll: false });
                 return;
             }
 
@@ -659,7 +659,7 @@ function AddFoodContent() {
     return (
         <main className="min-h-screen text-white p-6 font-sans">
             <div className="flex items-center justify-between mb-8">
-                <button onClick={() => selectedFood ? setSelectedFood(null) : router.push(`/?date=${targetDate}`)} className="p-2 -ml-2">
+                <button onClick={() => selectedFood ? setSelectedFood(null) : router.push(`/?date=${targetDate}`, { scroll: false })} className="p-2 -ml-2">
                     <ChevronLeft className="w-6 h-6" />
                 </button>
                 <h1 className="text-xl font-bold">{selectedFood ? selectedFood.nombre : "Añadir Alimento"}</h1>
@@ -1324,7 +1324,7 @@ function AddFoodContent() {
 
                         <div className="flex gap-3">
                             <button
-                                onClick={() => editMode ? router.push(`/?date=${targetDate}`) : setSelectedFood(null)}
+                                onClick={() => editMode ? router.push(`/?date=${targetDate}`, { scroll: false }) : setSelectedFood(null)}
                                 className="w-16 h-16 bg-red-900/20 border border-red-500/20 rounded-full flex items-center justify-center group active:scale-90 transition-transform"
                             >
                                 <Trash2 className="w-6 h-6 text-red-500" />
