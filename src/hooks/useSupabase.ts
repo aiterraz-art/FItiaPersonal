@@ -2,6 +2,11 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { formatDateAsLocalISO, getTodayLocalDate } from '@/lib/utils';
+
+const PRELOAD_RADIUS_DAYS = 5;
+const hasCacheKey = (record: Record<string, unknown>, key: string) =>
+    Object.prototype.hasOwnProperty.call(record, key);
 
 // In-memory cache to prevent 0-reset flickering during day transitions
 const globalCache: {
@@ -22,46 +27,68 @@ export function usePreloader(userId: string | null, centerDate: string) {
 
         async function preloadRange() {
             const center = new Date(centerDate + "T12:00:00");
-            const dates: string[] = [];
-            for (let i = -3; i <= 3; i++) {
+            const datesToLoad: string[] = [];
+            for (let i = -PRELOAD_RADIUS_DAYS; i <= PRELOAD_RADIUS_DAYS; i++) {
                 const d = new Date(center);
                 d.setDate(center.getDate() + i);
-                const ds = d.toISOString().split('T')[0];
-                // Only fetch if not already in cache to avoid redundant network usage
-                if (!globalCache.foodLogs[`${userId}:${ds}`]) {
-                    dates.push(ds);
+                const ds = formatDateAsLocalISO(d);
+                const cacheKey = `${userId}:${ds}`;
+                const missingFood = !hasCacheKey(globalCache.foodLogs, cacheKey);
+                const missingWaterCount = !hasCacheKey(globalCache.waterLogs, cacheKey);
+                const missingWaterIds = !hasCacheKey(globalCache.waterLogIds, cacheKey);
+
+                if (missingFood || missingWaterCount || missingWaterIds) {
+                    datesToLoad.push(ds);
                 }
             }
 
-            if (dates.length === 0) return;
+            if (datesToLoad.length === 0) return;
 
-            const startDate = dates[0];
-            const endDate = dates[dates.length - 1];
+            const startDate = datesToLoad[0];
+            const endDate = datesToLoad[datesToLoad.length - 1];
 
-            // Fetch Food Logs Range
-            const { data: foodData } = await supabase
-                .from('food_logs')
-                .select(`
-                    *,
-                    food_items (*),
-                    recipes (
+            const [foodRes, waterRes] = await Promise.all([
+                supabase
+                    .from('food_logs')
+                    .select(`
                         *,
-                        recipe_ingredients (
+                        food_items (*),
+                        recipes (
                             *,
-                            food_items (*)
+                            recipe_ingredients (
+                                *,
+                                food_items (*)
+                            )
                         )
-                    )
-                `)
-                .eq('user_id', userId)
-                .gte('fecha', startDate)
-                .lte('fecha', endDate);
+                    `)
+                    .eq('user_id', userId)
+                    .gte('fecha', startDate)
+                    .lte('fecha', endDate),
+                supabase
+                    .from('water_logs')
+                    .select('id, fecha')
+                    .eq('user_id', userId)
+                    .gte('fecha', startDate)
+                    .lte('fecha', endDate)
+                    .order('created_at', { ascending: true })
+            ]);
 
+            // Initialize missing keys so next render can read cache instantly.
+            datesToLoad.forEach(d => {
+                const key = `${userId}:${d}`;
+                if (!hasCacheKey(globalCache.foodLogs, key)) {
+                    globalCache.foodLogs[key] = [];
+                }
+                if (!hasCacheKey(globalCache.waterLogs, key)) {
+                    globalCache.waterLogs[key] = 0;
+                }
+                if (!hasCacheKey(globalCache.waterLogIds, key)) {
+                    globalCache.waterLogIds[key] = [];
+                }
+            });
+
+            const foodData = foodRes.data;
             if (foodData) {
-                // Initialize cache for all requested dates to prevent re-fetching the same range
-                dates.forEach(d => {
-                    globalCache.foodLogs[`${userId}:${d}`] = [];
-                });
-                // Fill with actual data
                 foodData.forEach(log => {
                     const k = `${userId}:${log.fecha}`;
                     if (!globalCache.foodLogs[k]) globalCache.foodLogs[k] = [];
@@ -69,20 +96,8 @@ export function usePreloader(userId: string | null, centerDate: string) {
                 });
             }
 
-            // Fetch Water Logs Range
-            const { data: waterData } = await supabase
-                .from('water_logs')
-                .select('id, fecha')
-                .eq('user_id', userId)
-                .gte('fecha', startDate)
-                .lte('fecha', endDate)
-                .order('created_at', { ascending: true });
-
+            const waterData = waterRes.data;
             if (waterData) {
-                dates.forEach(d => {
-                    globalCache.waterLogs[`${userId}:${d}`] = 0;
-                    globalCache.waterLogIds[`${userId}:${d}`] = [];
-                });
                 waterData.forEach(log => {
                     const k = `${userId}:${log.fecha}`;
                     globalCache.waterLogs[k] = (globalCache.waterLogs[k] || 0) + 1;
@@ -112,7 +127,7 @@ export function useProfile(userId?: string) {
 
             if (data) {
                 // Streak Logic
-                const today = new Date().toISOString().split('T')[0];
+                const today = getTodayLocalDate();
                 const lastDate = data.ultima_fecha_registro;
                 let currentStreak = data.racha_actual || 0;
 
@@ -141,7 +156,7 @@ export function useProfile(userId?: string) {
     const updateStreak = async () => {
         if (!userId || !profile) return;
 
-        const today = new Date().toISOString().split('T')[0];
+        const today = getTodayLocalDate();
         const lastDate = profile.ultima_fecha_registro;
 
         if (lastDate === today) return; // Already updated today
@@ -210,13 +225,23 @@ export function useProfile(userId?: string) {
 
 export function useFoodLogs(userId?: string, date?: string) {
     const cacheKey = `${userId}:${date}`;
-    const [logs, setLogs] = useState<any[]>(date ? globalCache.foodLogs[cacheKey] || [] : []);
-    const [loading, setLoading] = useState(!logs.length);
+    const hasCachedLogs = Boolean(date && hasCacheKey(globalCache.foodLogs, cacheKey));
+    const [logs, setLogs] = useState<any[]>(hasCachedLogs ? globalCache.foodLogs[cacheKey] : []);
+    const [loading, setLoading] = useState(Boolean(date && !hasCachedLogs));
 
-    const fetchLogs = useCallback(async () => {
+    const fetchLogs = useCallback(async ({ force = false, background = false } = {}) => {
         if (!userId || !date) return;
 
-        setLoading(true);
+        const cached = hasCacheKey(globalCache.foodLogs, cacheKey);
+        if (cached && !force) {
+            if (!background) {
+                setLogs(globalCache.foodLogs[cacheKey]);
+                setLoading(false);
+            }
+            return;
+        }
+
+        if (!background) setLoading(true);
         const { data, error } = await supabase
             .from('food_logs')
             .select(`
@@ -236,17 +261,30 @@ export function useFoodLogs(userId?: string, date?: string) {
         if (error) {
             console.error("Error fetching food logs:", error);
         }
-        if (data) {
-            console.log(`Fetched ${data.length} logs for ${date}`);
-            globalCache.foodLogs[cacheKey] = data;
-            setLogs(data);
-        }
-        setLoading(false);
+        const nextData = data || [];
+        globalCache.foodLogs[cacheKey] = nextData;
+        setLogs(nextData);
+        if (!background) setLoading(false);
     }, [userId, date, cacheKey]);
 
     useEffect(() => {
+        if (!date) {
+            setLogs([]);
+            setLoading(false);
+            return;
+        }
+
+        if (hasCacheKey(globalCache.foodLogs, cacheKey)) {
+            setLogs(globalCache.foodLogs[cacheKey]);
+            setLoading(false);
+            fetchLogs({ force: true, background: true });
+            return;
+        }
+
+        setLogs([]);
+        setLoading(true);
         fetchLogs();
-    }, [fetchLogs]);
+    }, [cacheKey, date, fetchLogs]);
 
     return {
         logs, loading, refetch: fetchLogs, setLogs: (newLogsOrFn: any) => {
@@ -337,13 +375,29 @@ export function useFoodLogActions() {
 
 export function useWaterLogs(userId?: string, date?: string) {
     const cacheKey = `${userId}:${date}`;
-    const [glasses, setGlasses] = useState(date ? globalCache.waterLogs[cacheKey] || 0 : 0);
-    const [waterLogIds, setWaterLogIds] = useState<string[]>(date ? globalCache.waterLogIds[cacheKey] || [] : []);
-    const [loading, setLoading] = useState(!waterLogIds.length && glasses === 0);
+    const hasCachedWater = Boolean(
+        date &&
+        hasCacheKey(globalCache.waterLogs, cacheKey) &&
+        hasCacheKey(globalCache.waterLogIds, cacheKey)
+    );
+    const [glasses, setGlasses] = useState(hasCachedWater ? globalCache.waterLogs[cacheKey] : 0);
+    const [waterLogIds, setWaterLogIds] = useState<string[]>(hasCachedWater ? globalCache.waterLogIds[cacheKey] : []);
+    const [loading, setLoading] = useState(Boolean(date && !hasCachedWater));
 
-    const fetchWater = useCallback(async () => {
+    const fetchWater = useCallback(async ({ force = false, background = false } = {}) => {
         if (!userId || !date) return;
-        setLoading(true);
+
+        const cached = hasCacheKey(globalCache.waterLogs, cacheKey) && hasCacheKey(globalCache.waterLogIds, cacheKey);
+        if (cached && !force) {
+            if (!background) {
+                setGlasses(globalCache.waterLogs[cacheKey] || 0);
+                setWaterLogIds(globalCache.waterLogIds[cacheKey] || []);
+                setLoading(false);
+            }
+            return;
+        }
+
+        if (!background) setLoading(true);
         const { data, error } = await supabase
             .from('water_logs')
             .select('id')
@@ -351,20 +405,42 @@ export function useWaterLogs(userId?: string, date?: string) {
             .eq('fecha', date)
             .order('created_at', { ascending: true });
 
-        if (data) {
-            const count = data.length;
-            const ids = data.map(d => d.id);
-            globalCache.waterLogs[cacheKey] = count;
-            globalCache.waterLogIds[cacheKey] = ids;
-            setGlasses(count);
-            setWaterLogIds(ids);
+        if (error) {
+            console.error("Error fetching water logs:", error);
         }
-        setLoading(false);
+
+        const rows = data || [];
+        const count = rows.length;
+        const ids = rows.map(d => d.id);
+        globalCache.waterLogs[cacheKey] = count;
+        globalCache.waterLogIds[cacheKey] = ids;
+        setGlasses(count);
+        setWaterLogIds(ids);
+        if (!background) setLoading(false);
     }, [userId, date, cacheKey]);
 
     useEffect(() => {
+        if (!date) {
+            setGlasses(0);
+            setWaterLogIds([]);
+            setLoading(false);
+            return;
+        }
+
+        const cached = hasCacheKey(globalCache.waterLogs, cacheKey) && hasCacheKey(globalCache.waterLogIds, cacheKey);
+        if (cached) {
+            setGlasses(globalCache.waterLogs[cacheKey] || 0);
+            setWaterLogIds(globalCache.waterLogIds[cacheKey] || []);
+            setLoading(false);
+            fetchWater({ force: true, background: true });
+            return;
+        }
+
+        setGlasses(0);
+        setWaterLogIds([]);
+        setLoading(true);
         fetchWater();
-    }, [fetchWater]);
+    }, [cacheKey, date, fetchWater]);
 
     const addGlass = async () => {
         if (!userId || !date) {
@@ -385,7 +461,7 @@ export function useWaterLogs(userId?: string, date?: string) {
         if (error) {
             console.error('Water add error:', error);
             // Revert on failure
-            const revertCount = Math.max(0, glasses - 1);
+            const revertCount = glasses;
             setGlasses(revertCount);
             if (date) globalCache.waterLogs[cacheKey] = revertCount;
             return;
@@ -512,7 +588,7 @@ export function useAnalytics(userId?: string) {
             .from('weight_logs')
             .select('*')
             .eq('user_id', userId)
-            .gte('fecha', yearAgo.toISOString().split('T')[0])
+            .gte('fecha', formatDateAsLocalISO(yearAgo))
             .order('fecha', { ascending: true });
 
         if (weights) setWeightData(weights);
@@ -533,7 +609,7 @@ export function useAnalytics(userId?: string) {
                 )
             `)
             .eq('user_id', userId)
-            .gte('fecha', yearAgo.toISOString().split('T')[0]);
+            .gte('fecha', formatDateAsLocalISO(yearAgo));
 
         if (foodLogs) {
             // Processing logic will be done in the component for flexibility

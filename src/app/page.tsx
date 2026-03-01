@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Copy, Check, Plus } from "lucide-react";
-import { motion, AnimatePresence, Reorder, useDragControls } from "framer-motion";
+import { motion, AnimatePresence, Reorder, useAnimationControls, useDragControls } from "framer-motion";
 import { CalorieArc, MacroBar } from "@/components/dashboard/ProgressCards";
 import { MealCard } from "@/components/dashboard/MealCard";
 import { WaterTracker } from "@/components/dashboard/WaterTracker";
@@ -12,7 +12,7 @@ import { EditLogModal } from "@/components/dashboard/EditLogModal";
 import { MonthlyCalendar } from "@/components/dashboard/MonthlyCalendar";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatDateAsLocalISO, getTodayLocalDate } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useProfile, useFoodLogs, useWaterLogs, useFoodLogActions, usePreloader } from "@/hooks/useSupabase";
 import { toPng } from "html-to-image";
@@ -152,7 +152,7 @@ function DayContent({
   const lastHandledTrigger = useRef(shareTrigger);
 
   useEffect(() => {
-    if (logs.length > 0 && date === new Date().toISOString().split("T")[0]) {
+    if (logs.length > 0 && date === getTodayLocalDate()) {
       updateStreak();
     }
   }, [logs.length, date, updateStreak]);
@@ -559,16 +559,11 @@ function Dashboard() {
   const [userId, setUserId] = useState<string | null>(null);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [shareTrigger, setShareTrigger] = useState(0);
-
-  const getLocalDateString = () => {
-    const d = new Date();
-    const offset = d.getTimezoneOffset();
-    const local = new Date(d.getTime() - offset * 60 * 1000);
-    return local.toISOString().split("T")[0];
-  };
+  const dayContentControls = useAnimationControls();
+  const previousDateRef = useRef<string | null>(null);
 
   const dateParam = searchParams.get("date");
-  const [selectedDate, setSelectedDate] = useState(dateParam || getLocalDateString());
+  const [selectedDate, setSelectedDate] = useState(dateParam || getTodayLocalDate());
   const [direction, setDirection] = useState(0);
 
   useEffect(() => {
@@ -584,12 +579,40 @@ function Dashboard() {
 
   useEffect(() => {
     async function initAuth() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setUserId(session.user.id);
+        return;
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       if (user) setUserId(user.id);
       else router.push("/login");
     }
     initAuth();
   }, [router]);
+
+  useEffect(() => {
+    if (previousDateRef.current === null) {
+      previousDateRef.current = selectedDate;
+      dayContentControls.set({ x: 0, opacity: 1 });
+      return;
+    }
+
+    if (previousDateRef.current === selectedDate) return;
+
+    const fromX = direction > 0 ? 36 : direction < 0 ? -36 : 0;
+    dayContentControls.set({ x: fromX, opacity: 0.92 });
+    dayContentControls.start({
+      x: 0,
+      opacity: 1,
+      transition: {
+        x: { type: "spring", stiffness: 280, damping: 32, mass: 0.8 },
+        opacity: { duration: 0.18 }
+      }
+    });
+    previousDateRef.current = selectedDate;
+  }, [selectedDate, direction, dayContentControls]);
 
   const handleDateChange = (newDate: string) => {
     const oldTime = new Date(selectedDate + "T12:00:00").getTime();
@@ -606,7 +629,7 @@ function Dashboard() {
       return {
         day: ["D", "L", "M", "M", "J", "V", "S"][d.getDay()],
         date: d.getDate(),
-        full: d.toISOString().split("T")[0]
+        full: formatDateAsLocalISO(d)
       };
     });
   };
@@ -627,7 +650,7 @@ function Dashboard() {
             </button>
           </div>
           <button onClick={() => setIsCalendarOpen(true)} className="flex items-center gap-2 font-bold text-lg active:scale-95 transition-transform">
-            <span className="bg-linear-to-r from-fuchsia-300 to-blue-300 bg-clip-text text-transparent">📅 {selectedDate === getLocalDateString() ? "Hoy" : selectedDate}</span>
+            <span className="bg-linear-to-r from-fuchsia-300 to-blue-300 bg-clip-text text-transparent">📅 {selectedDate === getTodayLocalDate() ? "Hoy" : selectedDate}</span>
           </button>
           <div className="flex items-center gap-1.5 bg-fuchsia-500/10 px-3 py-1.5 rounded-full border border-fuchsia-500/15">
             <span className="text-fuchsia-400 text-sm">🔥 {profile?.racha_actual || 0}</span>
@@ -658,11 +681,11 @@ function Dashboard() {
                 if (info.offset.x > 50) {
                   const d = new Date(selectedDate + "T12:00:00");
                   d.setDate(d.getDate() - 1);
-                  handleDateChange(d.toISOString().split("T")[0]);
+                  handleDateChange(formatDateAsLocalISO(d));
                 } else if (info.offset.x < -50) {
                   const d = new Date(selectedDate + "T12:00:00");
                   d.setDate(d.getDate() + 1);
-                  handleDateChange(d.toISOString().split("T")[0]);
+                  handleDateChange(formatDateAsLocalISO(d));
                 }
               }}
               className="absolute inset-x-2 flex justify-between items-center cursor-grab active:cursor-grabbing pb-4"
@@ -682,49 +705,38 @@ function Dashboard() {
       </header>
 
       <div className="relative min-h-[60vh]">
-        <AnimatePresence mode="popLayout" initial={false} custom={direction}>
-          <motion.div
-            key={selectedDate}
-            custom={direction}
-            variants={{
-              enter: (d: number) => ({ x: d > 0 ? "100%" : d < 0 ? "-100%" : 0, opacity: 0 }),
-              center: { x: 0, opacity: 1 },
-              exit: (d: number) => ({ x: d < 0 ? "100%" : d > 0 ? "-100%" : 0, opacity: 0 })
-            }}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={{ x: { type: "spring", stiffness: 250, damping: 32, mass: 0.8 }, opacity: { duration: 0.2 } }}
-            drag="x"
-            dragConstraints={{ left: 0, right: 0 }}
-            dragElastic={1}
-            dragDirectionLock
-            onDragEnd={(_, info) => {
-              const threshold = 50;
-              if (info.offset.x > threshold) {
-                const d = new Date(selectedDate + "T12:00:00");
-                d.setDate(d.getDate() - 1);
-                handleDateChange(d.toISOString().split("T")[0]);
-              } else if (info.offset.x < -threshold) {
-                const d = new Date(selectedDate + "T12:00:00");
-                d.setDate(d.getDate() + 1);
-                handleDateChange(d.toISOString().split("T")[0]);
-              }
-            }}
-            className="w-full"
-          >
-            <DayContent
-              userId={userId}
-              date={selectedDate}
-              profile={profile}
-              updateStreak={updateStreak}
-              updateMealOrder={updateMealOrder}
-              refetchProfile={refetchProfile}
-              shareTrigger={shareTrigger}
-              onDateChange={handleDateChange}
-            />
-          </motion.div>
-        </AnimatePresence>
+        <motion.div
+          initial={false}
+          animate={dayContentControls}
+          drag="x"
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={1}
+          dragDirectionLock
+          onDragEnd={(_, info) => {
+            const threshold = 50;
+            if (info.offset.x > threshold) {
+              const d = new Date(selectedDate + "T12:00:00");
+              d.setDate(d.getDate() - 1);
+              handleDateChange(formatDateAsLocalISO(d));
+            } else if (info.offset.x < -threshold) {
+              const d = new Date(selectedDate + "T12:00:00");
+              d.setDate(d.getDate() + 1);
+              handleDateChange(formatDateAsLocalISO(d));
+            }
+          }}
+          className="w-full"
+        >
+          <DayContent
+            userId={userId}
+            date={selectedDate}
+            profile={profile}
+            updateStreak={updateStreak}
+            updateMealOrder={updateMealOrder}
+            refetchProfile={refetchProfile}
+            shareTrigger={shareTrigger}
+            onDateChange={handleDateChange}
+          />
+        </motion.div>
       </div>
 
       <MonthlyCalendar isOpen={isCalendarOpen} onClose={() => setIsCalendarOpen(false)} selectedDate={selectedDate} onDateSelect={setSelectedDate} />

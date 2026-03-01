@@ -86,6 +86,7 @@ export default function Progress() {
 
     const imc = profile ? (profile.peso_kg / ((profile.altura_cm / 100) ** 2)).toFixed(1) : "0.0";
     const ffmi = profile ? (profile.peso_kg * (1 - (profile.porcentaje_grasa / 100)) / ((profile.altura_cm / 100) ** 2)).toFixed(1) : "0.0";
+    const averageCalories = Math.round(processedCalorieData.reduce((acc, d) => acc + d.value, 0) / (processedCalorieData.length || 1));
 
     if (loading) return <div className="min-h-screen bg-black flex items-center justify-center"><Zap className="w-8 h-8 text-fuchsia-500 animate-pulse" /></div>;
 
@@ -176,7 +177,7 @@ export default function Progress() {
                     <div className="flex justify-between items-center mb-6 relative">
                         <div>
                             <h3 className="text-zinc-400 text-[10px] font-black uppercase tracking-[0.2em] mb-1">Calorías Diarias</h3>
-                            <p className="text-2xl font-black tracking-tight">{Math.round(processedCalorieData.reduce((acc, d) => acc + d.value, 0) / (processedCalorieData.length || 1))} <span className="text-sm text-zinc-500">promedio</span></p>
+                            <p className="text-2xl font-black tracking-tight">{averageCalories} <span className="text-sm text-zinc-500">promedio</span></p>
                         </div>
                         <div className="p-3 bg-fuchsia-500/10 rounded-2xl border border-fuchsia-500/20">
                             <TrendingUp className="w-5 h-5 text-fuchsia-400" />
@@ -188,16 +189,16 @@ export default function Progress() {
                 {/* Stats Summary */}
                 <div className="grid grid-cols-3 gap-3">
                     <div className="p-4 rounded-3xl bg-white/5 border border-white/5 text-center">
-                        <p className="text-[9px] font-black text-zinc-500 uppercase tracking-tighter mb-1">Actual</p>
-                        <p className="text-lg font-black text-zinc-200">{profile?.peso_kg || 0}</p>
+                        <p className="text-[9px] font-black text-zinc-500 uppercase tracking-tighter mb-1">Peso Actual</p>
+                        <p className="text-lg font-black text-zinc-200">{profile?.peso_kg || 0}<span className="text-[10px] text-zinc-500 ml-1">kg</span></p>
                     </div>
                     <div className="p-4 rounded-3xl bg-white/5 border border-white/5 text-center">
-                        <p className="text-[9px] font-black text-zinc-500 uppercase tracking-tighter mb-1">Meta</p>
-                        <p className="text-lg font-black text-blue-400">72.0</p>
+                        <p className="text-[9px] font-black text-zinc-500 uppercase tracking-tighter mb-1">Meta Kcal</p>
+                        <p className="text-lg font-black text-blue-400">{profile?.meta_kcal || 0}</p>
                     </div>
                     <div className="p-4 rounded-3xl bg-white/5 border border-white/5 text-center">
-                        <p className="text-[9px] font-black text-zinc-500 uppercase tracking-tighter mb-1">Promedio</p>
-                        <p className="text-lg font-black text-fuchsia-400">2.4k</p>
+                        <p className="text-[9px] font-black text-zinc-500 uppercase tracking-tighter mb-1">Promedio Kcal</p>
+                        <p className="text-lg font-black text-fuchsia-400">{averageCalories}</p>
                     </div>
                 </div>
             </div>

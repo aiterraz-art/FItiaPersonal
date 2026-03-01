@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { ChevronLeft, ShoppingBag, CheckCircle2, Circle, Trash2, Printer, Share2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatDateAsLocalISO } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { BottomNav } from "@/components/navigation/BottomNav";
@@ -30,8 +30,15 @@ export default function ShoppingList() {
     const fetchWeeklyLogs = async (uid: string) => {
         setLoading(true);
         const now = new Date();
-        const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay() + 1)).toISOString().split('T')[0];
-        const endOfWeek = new Date(now.setDate(now.getDate() - now.getDay() + 7)).toISOString().split('T')[0];
+        const day = now.getDay(); // 0=domingo, 1=lunes...
+        const diffToMonday = day === 0 ? -6 : 1 - day;
+        const monday = new Date(now);
+        monday.setDate(now.getDate() + diffToMonday);
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+
+        const startOfWeek = formatDateAsLocalISO(monday);
+        const endOfWeek = formatDateAsLocalISO(sunday);
 
         const { data, error } = await supabase
             .from('food_logs')

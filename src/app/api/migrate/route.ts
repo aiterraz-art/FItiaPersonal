@@ -46,6 +46,29 @@ export async function POST() {
             gramos NUMERIC NOT NULL,
             created_at TIMESTAMPTZ DEFAULT now()
         );
+
+        --Vault Progress
+                CREATE TABLE IF NOT EXISTS public.progress_photos(
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+            photo_url TEXT NOT NULL,
+            tipo TEXT DEFAULT 'frente',
+            fecha DATE NOT NULL,
+            created_at TIMESTAMPTZ DEFAULT now()
+        );
+
+                CREATE TABLE IF NOT EXISTS public.body_measurements(
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+            fecha DATE NOT NULL,
+            peso_kg NUMERIC,
+            cintura_cm NUMERIC,
+            brazo_cm NUMERIC,
+            pecho_cm NUMERIC,
+            pierna_cm NUMERIC,
+            cuello_cm NUMERIC,
+            created_at TIMESTAMPTZ DEFAULT now()
+        );
         `
         });
 
@@ -90,6 +113,28 @@ export async function POST() {
             recipe_id UUID REFERENCES public.recipes(id) ON DELETE CASCADE,
             food_id UUID REFERENCES public.food_items(id) ON DELETE CASCADE,
             gramos NUMERIC NOT NULL,
+            created_at TIMESTAMPTZ DEFAULT now()
+        );
+
+                CREATE TABLE IF NOT EXISTS public.progress_photos(
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+            photo_url TEXT NOT NULL,
+            tipo TEXT DEFAULT 'frente',
+            fecha DATE NOT NULL,
+            created_at TIMESTAMPTZ DEFAULT now()
+        );
+
+                CREATE TABLE IF NOT EXISTS public.body_measurements(
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+            fecha DATE NOT NULL,
+            peso_kg NUMERIC,
+            cintura_cm NUMERIC,
+            brazo_cm NUMERIC,
+            pecho_cm NUMERIC,
+            pierna_cm NUMERIC,
+            cuello_cm NUMERIC,
             created_at TIMESTAMPTZ DEFAULT now()
         );
         `

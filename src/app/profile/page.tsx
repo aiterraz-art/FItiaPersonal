@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { ChevronLeft, Info, Save } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getTodayLocalDate } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -81,7 +81,7 @@ export default function Profile() {
         const { error: logError } = await supabase.from("weight_logs").insert({
             user_id: profile.id,
             peso_kg: profile.peso,
-            fecha: new Date().toISOString().split("T")[0],
+            fecha: getTodayLocalDate(),
         });
 
         if (logError) {

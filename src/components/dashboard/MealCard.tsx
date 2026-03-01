@@ -309,7 +309,7 @@ export function MealCard({
             </div>
 
             <button
-                onClick={() => router.push(`/add-food?date=${date}&meal=${title}`)}
+                onClick={() => router.push(`/add-food?date=${date}&meal=${encodeURIComponent(title)}`)}
                 className="w-full py-3.5 bg-gradient-to-r from-fuchsia-600/20 to-blue-600/20 border border-fuchsia-500/20 rounded-2xl flex items-center justify-center hover:from-fuchsia-600/30 hover:to-blue-600/30 transition-all duration-300 active:scale-[0.98] group"
             >
                 <Plus className="w-5 h-5 text-fuchsia-400 transition-transform group-hover:rotate-90" />

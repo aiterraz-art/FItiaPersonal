@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { ChevronLeft, Camera, Ruler, Trash2, Calendar, LayoutGrid, Maximize2, Plus, Zap } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getTodayLocalDate } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { BottomNav } from "@/components/navigation/BottomNav";
@@ -86,7 +86,7 @@ export default function Vault() {
                     user_id: userId,
                     photo_url: publicUrl,
                     tipo: 'frente', // Default, could let user chooses
-                    fecha: new Date().toISOString().split('T')[0]
+                    fecha: getTodayLocalDate()
                 });
 
             if (dbError) throw dbError;

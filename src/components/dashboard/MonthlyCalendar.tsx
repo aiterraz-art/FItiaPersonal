@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatDateAsLocalISO, getTodayLocalDate } from "@/lib/utils";
 
 interface MonthlyCalendarProps {
     isOpen: boolean;
@@ -13,6 +13,12 @@ interface MonthlyCalendarProps {
 
 export function MonthlyCalendar({ isOpen, onClose, selectedDate, onDateSelect }: MonthlyCalendarProps) {
     const [viewDate, setViewDate] = useState(new Date(selectedDate + "T12:00:00"));
+
+    useEffect(() => {
+        if (isOpen) {
+            setViewDate(new Date(selectedDate + "T12:00:00"));
+        }
+    }, [isOpen, selectedDate]);
 
     if (!isOpen) return null;
 
@@ -34,11 +40,11 @@ export function MonthlyCalendar({ isOpen, onClose, selectedDate, onDateSelect }:
     const prevMonth = () => setViewDate(new Date(currentYear, currentMonth - 1, 1));
     const nextMonth = () => setViewDate(new Date(currentYear, currentMonth + 1, 1));
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = getTodayLocalDate();
 
     const handleDateClick = (day: number) => {
         const d = new Date(currentYear, currentMonth, day, 12, 0, 0);
-        onDateSelect(d.toISOString().split("T")[0]);
+        onDateSelect(formatDateAsLocalISO(d));
         onClose();
     };
 
@@ -70,7 +76,7 @@ export function MonthlyCalendar({ isOpen, onClose, selectedDate, onDateSelect }:
                         <div key={`empty-${i}`} />
                     ))}
                     {days.map((day) => {
-                        const dateCode = new Date(currentYear, currentMonth, day, 12, 0, 0).toISOString().split("T")[0];
+                        const dateCode = formatDateAsLocalISO(new Date(currentYear, currentMonth, day, 12, 0, 0));
                         const isSelected = dateCode === selectedDate;
                         const isToday = dateCode === today;
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import { ChevronLeft, Search, Heart, Share2, MoreHorizontal, Trash2, ChevronDown, Flag, PlusCircle, Camera, Pencil, X, Check } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getTodayLocalDate } from "@/lib/utils";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { motion, AnimatePresence } from "framer-motion";
@@ -51,10 +51,10 @@ function AddFoodContent() {
     const [showEditModal, setShowEditModal] = useState(false);
     const [editDraft, setEditDraft] = useState<any>(null);
 
-    const targetDate = searchParams.get("date") || new Date().toISOString().split("T")[0];
+    const targetDate = searchParams.get("date") || getTodayLocalDate();
     const mealType = searchParams.get("meal") || "Almuerzo";
     const editingLogId = searchParams.get("logId") || null;
-    const [editMode, setEditMode] = useState(!!editingLogId);
+    const editMode = Boolean(editingLogId);
 
     // Load existing log when in edit mode
     useEffect(() => {
@@ -252,6 +252,21 @@ function AddFoodContent() {
 
     const calculateTotal = (val: number, base: number) => Math.round((val * base) / 100);
 
+    const parsePortionInfo = (portionName?: string | null) => {
+        if (!portionName) return { multiplier: 1, label: 'porción' };
+        const match = portionName.match(/^(\d+\.?\d*)\s+(.+)$/);
+        return match
+            ? { multiplier: parseFloat(match[1]), label: match[2] }
+            : { multiplier: 1, label: portionName };
+    };
+
+    const getEffectiveGrams = (inputCantidad: number, inputUnidad: 'gramos' | 'porcion', food: any) => {
+        if (inputUnidad === 'gramos') return inputCantidad;
+        const portionInfo = parsePortionInfo(food?.porcion_nombre);
+        const portionsCount = inputCantidad / portionInfo.multiplier;
+        return portionsCount * Number(food?.porcion_gramos || 100);
+    };
+
     const handleAISearch = async () => {
         if (!search) return;
         setAiLoading(true);
@@ -374,6 +389,7 @@ function AddFoodContent() {
             alert("Error al eliminar la receta");
         } else {
             setResults(prev => prev.filter(r => r.id !== id));
+            setSavedRecipes(prev => prev.filter(r => r.id !== id));
         }
     };
 
@@ -388,17 +404,9 @@ function AddFoodContent() {
             }
 
             // ─── CALCULATE FINAL VALUES ───────────────────────────────────────
-            const portionInfo = selectedFood.porcion_nombre
-                ? (() => {
-                    const match = selectedFood.porcion_nombre.match(/^(\d+\.?\d*)\s+(.+)$/);
-                    return match ? { multiplier: parseFloat(match[1]), label: match[2] } : { multiplier: 1, label: selectedFood.porcion_nombre };
-                })()
-                : { multiplier: 1, label: 'porción' };
-
-            // If it's a multi-unit portion (e.g. "2 galletas"), 'gramos' (input) represents total units.
-            // We need to convert it to portions: portions = units / multiplier
+            const portionInfo = parsePortionInfo(selectedFood.porcion_nombre);
             const portionsCount = unidad === 'gramos' ? 1 : (gramos / portionInfo.multiplier);
-            const newGramos = unidad === 'gramos' ? gramos : (portionsCount * (selectedFood.porcion_gramos || 100));
+            const newGramos = getEffectiveGrams(gramos, unidad, selectedFood);
 
             const newOriginalCantidad = portionsCount;
             const newOriginalUnidad = unidad === 'gramos' ? 'gramos' : (selectedFood.porcion_nombre || 'porción');
@@ -1112,9 +1120,9 @@ function AddFoodContent() {
                         <p className="text-[10px] text-zinc-500 font-bold mt-6 uppercase tracking-[0.2em]">
                             {(() => {
                                 if (unidad === 'gramos') return `Peso: ${gramos}g`;
-                                const match = selectedFood.porcion_nombre?.match(/^(\d+\.?\d*)\s+(.+)$/);
-                                const totalGramos = Math.round((gramos / (match ? parseFloat(match[1]) : 1)) * (selectedFood.porcion_gramos || 100));
-                                const label = match ? match[2] : (selectedFood.porcion_nombre || 'porciones');
+                                const portionInfo = parsePortionInfo(selectedFood.porcion_nombre);
+                                const totalGramos = Math.round(getEffectiveGrams(gramos, 'porcion', selectedFood));
+                                const label = portionInfo.label || 'porciones';
                                 return `${gramos} ${label} · ${totalGramos}g`;
                             })()} - {selectedFood.estado || 'cocido'}
                         </p>
@@ -1122,10 +1130,10 @@ function AddFoodContent() {
 
                     <div className="grid grid-cols-4 gap-2">
                         {[
-                            { label: 'kcal', val: calculateTotal(unidad === 'gramos' ? gramos : (gramos * (selectedFood.porcion_gramos || 100)), Number(selectedFood.kcal)) },
-                            { label: 'proteínas', val: `${calculateTotal(unidad === 'gramos' ? gramos : (gramos * (selectedFood.porcion_gramos || 100)), Number(selectedFood.proteinas || 0))} g` },
-                            { label: 'carbs', val: `${calculateTotal(unidad === 'gramos' ? gramos : (gramos * (selectedFood.porcion_gramos || 100)), Number(selectedFood.carbohidratos || 0))} g` },
-                            { label: 'grasas', val: `${calculateTotal(unidad === 'gramos' ? gramos : (gramos * (selectedFood.porcion_gramos || 100)), Number(selectedFood.grasas || 0))} g` },
+                            { label: 'kcal', val: calculateTotal(getEffectiveGrams(gramos, unidad, selectedFood), Number(selectedFood.kcal)) },
+                            { label: 'proteínas', val: `${calculateTotal(getEffectiveGrams(gramos, unidad, selectedFood), Number(selectedFood.proteinas || 0))} g` },
+                            { label: 'carbs', val: `${calculateTotal(getEffectiveGrams(gramos, unidad, selectedFood), Number(selectedFood.carbohidratos || 0))} g` },
+                            { label: 'grasas', val: `${calculateTotal(getEffectiveGrams(gramos, unidad, selectedFood), Number(selectedFood.grasas || 0))} g` },
                         ].map((stat, i) => (
                             <div key={i} className="bg-violet-500/5 border border-violet-500/10 rounded-2xl py-4 px-1 text-center backdrop-blur-sm">
                                 <p className="text-lg font-extrabold mb-0.5">{stat.val}</p>
@@ -1194,7 +1202,7 @@ function AddFoodContent() {
                                                 setGramos(1);
                                             } else {
                                                 setUnidad('gramos');
-                                                setGramos(Math.round(1 * (selectedFood.porcion_gramos || 100)));
+                                                setGramos(Math.round(getEffectiveGrams(gramos, 'porcion', selectedFood)));
                                             }
                                         } else if (selectedFood.type !== 'recipe') {
                                             // Smart Unit Discovery
