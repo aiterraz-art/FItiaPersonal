@@ -137,10 +137,10 @@ export default function WeekPage() {
                 <div className="grid grid-cols-7 gap-3 min-w-[980px]">
                     {days.map((date) => {
                         const entries = entriesByDate[date] || [];
-                        const meals = DEFAULT_MEALS.map((meal) => ({
+                        const meals = getRenderableMeals(entries).map((meal) => ({
                             meal,
                             items: entries.filter((entry) => entry.meal_type === meal)
-                        })).filter((group) => group.items.length > 0 || mealShouldRender(group.meal));
+                        }));
                         const isToday = date === getTodayLocalDate();
                         const busy = busyKey === date || busyKey?.endsWith(date);
 
@@ -255,6 +255,36 @@ export default function WeekPage() {
     );
 }
 
-function mealShouldRender(meal: string) {
-    return DEFAULT_MEALS.includes(meal);
+function getRenderableMeals(entries: Array<{ meal_type: string }>) {
+    const presentMeals = Array.from(
+        new Set(
+            entries
+                .map((entry) => entry.meal_type)
+                .filter(Boolean)
+        )
+    );
+
+    const allMeals = Array.from(new Set([...DEFAULT_MEALS, ...presentMeals]));
+
+    return allMeals.sort((a, b) => compareMealTypes(a, b));
+}
+
+function compareMealTypes(a: string, b: string) {
+    const orderMap = new Map(DEFAULT_MEALS.map((meal, index) => [meal, index]));
+    const parsedA = parseMealType(a);
+    const parsedB = parseMealType(b);
+
+    const orderA = orderMap.get(parsedA.base) ?? Number.MAX_SAFE_INTEGER;
+    const orderB = orderMap.get(parsedB.base) ?? Number.MAX_SAFE_INTEGER;
+
+    if (orderA !== orderB) return orderA - orderB;
+    if (parsedA.variant !== parsedB.variant) return parsedA.variant - parsedB.variant;
+    return a.localeCompare(b, "es");
+}
+
+function parseMealType(value: string) {
+    const match = value.trim().match(/^(.*?)(?:\s+(\d+))?$/);
+    const base = match?.[1]?.trim() || value;
+    const variant = Number(match?.[2] || 1);
+    return { base, variant };
 }
