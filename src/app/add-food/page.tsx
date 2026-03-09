@@ -931,8 +931,8 @@ function AddFoodContent() {
                     </div>
 
                     <div
-                        className="fixed bottom-0 left-0 right-0 bg-[#0a0614]/90 backdrop-blur-2xl border-t border-violet-500/15 p-6 z-50"
-                        style={{ paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom))" }}
+                        className="fixed bottom-0 left-1/2 z-50 w-full max-w-lg -translate-x-1/2 border-t border-violet-500/15 bg-[#0a0614]/90 p-4 backdrop-blur-2xl sm:rounded-t-3xl sm:p-6"
+                        style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom))" }}
                     >
                         <div className="flex gap-4 mb-6">
                             <div className="flex-1 space-y-2">

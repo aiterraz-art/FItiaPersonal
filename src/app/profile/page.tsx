@@ -314,8 +314,8 @@ export default function Profile() {
             <button
                 onClick={handleSave}
                 disabled={isSaving}
-                className="btn-neon-primary neon-title fixed bottom-32 left-6 right-6 py-4 text-white font-extrabold rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-transform"
-                style={{ bottom: "calc(7.5rem + env(safe-area-inset-bottom))" }}
+                className="btn-neon-primary neon-title fixed bottom-32 left-1/2 z-40 flex w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 items-center justify-center gap-2 rounded-2xl py-4 text-white font-extrabold transition-transform active:scale-95"
+                style={{ bottom: "calc(7rem + env(safe-area-inset-bottom))" }}
             >
                 <Save className="w-5 h-5" />
                 {isSaving ? "Guardando..." : "Guardar Cambios"}
@@ -326,8 +326,8 @@ export default function Profile() {
                     await supabase.auth.signOut();
                     router.push("/login");
                 }}
-                className="fixed bottom-12 left-6 right-6 py-4 bg-zinc-900 border border-white/5 text-red-500 font-bold rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-transform"
-                style={{ bottom: "calc(1rem + env(safe-area-inset-bottom))" }}
+                className="fixed bottom-12 left-1/2 z-40 flex w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 items-center justify-center gap-2 rounded-2xl border border-white/5 bg-zinc-900 py-4 font-bold text-red-500 transition-transform active:scale-95"
+                style={{ bottom: "calc(0.5rem + env(safe-area-inset-bottom))" }}
             >
                 Cerrar Sesión
             </button>

@@ -25,6 +25,14 @@
 :root {
   --background: #0a0614;
   --foreground: #f7f7ff;
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --bottom-nav-height: 88px;
+}
+
+html {
+  min-height: 100%;
+  background: #0a0614;
 }
 
 body {
@@ -37,14 +45,16 @@ body {
   font-family: var(--font-manrope), sans-serif;
   -webkit-font-smoothing: antialiased;
   -webkit-text-size-adjust: 100%;
-  min-height: 100vh;
+  min-height: 100dvh;
   touch-action: manipulation;
   overscroll-behavior-y: contain;
 }
 
 .app-screen {
-  min-height: 100vh;
+  min-height: 100dvh;
   color: var(--foreground);
+  padding-top: var(--safe-area-top);
+  padding-bottom: calc(var(--bottom-nav-height) + var(--safe-area-bottom) + 1rem);
 }
 
 .neon-title {
