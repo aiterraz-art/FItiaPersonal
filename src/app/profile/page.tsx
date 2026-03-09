@@ -8,6 +8,8 @@ import { supabase } from "@/lib/supabase";
 
 export default function Profile() {
     const router = useRouter();
+    const [isSaving, setIsSaving] = useState(false);
+    const [feedback, setFeedback] = useState<string | null>(null);
     const [profile, setProfile] = useState({
         id: "",
         altura: 180,
@@ -25,7 +27,10 @@ export default function Profile() {
     useEffect(() => {
         async function getProfile() {
             const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
+            if (!user) {
+                router.push("/login");
+                return;
+            }
 
             const { data } = await supabase
                 .from("profiles")
@@ -52,12 +57,22 @@ export default function Profile() {
             }
         }
         getProfile();
-    }, []);
+    }, [router]);
 
     const handleSave = async () => {
+        setFeedback(null);
+        setIsSaving(true);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            setIsSaving(false);
+            router.push("/login");
+            return;
+        }
+        const profileId = user.id;
+
         // Update profile
         const { error: profileError } = await supabase.from("profiles").upsert({
-            id: profile.id,
+            id: profileId,
             altura_cm: profile.altura,
             peso_kg: profile.peso,
             porcentaje_grasa: profile.grasa,
@@ -73,13 +88,14 @@ export default function Profile() {
 
         if (profileError) {
             console.error("Profile update error:", profileError);
-            alert("Error al actualizar el perfil.");
+            setFeedback("Error al actualizar el perfil. Intenta nuevamente.");
+            setIsSaving(false);
             return;
         }
 
         // Add weight log entry
         const { error: logError } = await supabase.from("weight_logs").insert({
-            user_id: profile.id,
+            user_id: profileId,
             peso_kg: profile.peso,
             fecha: getTodayLocalDate(),
         });
@@ -89,6 +105,7 @@ export default function Profile() {
             // We don't block the profile update if logging fails (e.g. table not yet created)
         }
 
+        setIsSaving(false);
         router.push("/");
     };
 
@@ -98,13 +115,13 @@ export default function Profile() {
     const derivedCarbs = Math.max(0, Math.round((profile.meta_kcal - (profile.meta_p * 4) - (profile.meta_g * 9)) / 4));
 
     return (
-        <main className="min-h-screen bg-black text-white p-6 pb-64">
+        <main className="app-screen p-6 pb-64">
             {/* Header */}
             <div className="flex items-center gap-4 mb-8">
-                <button onClick={() => router.push("/")} className="p-2 -ml-2">
-                    <ChevronLeft className="w-6 h-6" />
+                <button onClick={() => router.push("/")} className="p-2 -ml-2 rounded-xl text-zinc-200 hover:bg-fuchsia-500/10 transition-colors">
+                    <ChevronLeft className="w-6 h-6 text-fuchsia-300" />
                 </button>
-                <h1 className="text-xl font-bold">Perfil y Metas</h1>
+                <h1 className="neon-title text-xl font-extrabold tracking-tight">Perfil y Metas</h1>
             </div>
 
             <div className="space-y-6">
@@ -156,8 +173,8 @@ export default function Profile() {
                 </div>
 
                 {/* Metas Diarias */}
-                <div className="glass-card p-6 border-gold/20 bg-gold/5">
-                    <h3 className="text-sm font-bold text-gold/60 uppercase tracking-widest mb-4">Meta Diaria</h3>
+                <div className="glass-card p-6 border-fuchsia-400/25 bg-fuchsia-500/5">
+                    <h3 className="text-sm font-bold text-fuchsia-300/80 uppercase tracking-widest mb-4">Meta Diaria</h3>
 
                     <div className="flex justify-between items-end border-b border-white/5 pb-4 mb-4">
                         <div>
@@ -166,10 +183,10 @@ export default function Profile() {
                                 type="number"
                                 value={profile.meta_kcal}
                                 onChange={(e) => setProfile({ ...profile, meta_kcal: parseInt(e.target.value) || 0 })}
-                                className="bg-transparent text-3xl font-bold focus:outline-none text-gold w-24"
+                                className="bg-transparent text-3xl font-bold focus:outline-none text-fuchsia-300 w-24"
                             />
                         </div>
-                        <span className="text-gold/50 font-bold mb-1">kcal</span>
+                        <span className="text-fuchsia-300/70 font-bold mb-1">kcal</span>
                     </div>
 
                     <div className="space-y-4">
@@ -242,8 +259,8 @@ export default function Profile() {
                                 className={cn(
                                     "w-full py-4 px-6 rounded-2xl text-left font-bold transition-all border",
                                     profile.fase === fase
-                                        ? "bg-white text-black border-white"
-                                        : "bg-transparent text-zinc-500 border-white/5"
+                                        ? "bg-linear-to-r from-fuchsia-500 to-violet-500 text-white border-fuchsia-300/40 shadow-lg shadow-fuchsia-500/25"
+                                        : "bg-transparent text-zinc-400 border-fuchsia-500/15 hover:border-fuchsia-500/30"
                                 )}
                             >
                                 {fase}
@@ -253,12 +270,20 @@ export default function Profile() {
                 </div>
             </div>
 
+            {feedback && (
+                <p className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-xs font-bold text-red-300">
+                    {feedback}
+                </p>
+            )}
+
             <button
                 onClick={handleSave}
-                className="fixed bottom-32 left-6 right-6 py-4 bg-gold text-black font-bold rounded-2xl flex items-center justify-center gap-2 shadow-xl shadow-gold/10 active:scale-95 transition-transform"
+                disabled={isSaving}
+                className="btn-neon-primary neon-title fixed bottom-32 left-6 right-6 py-4 text-white font-extrabold rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-transform"
+                style={{ bottom: "calc(7.5rem + env(safe-area-inset-bottom))" }}
             >
                 <Save className="w-5 h-5" />
-                Guardar Cambios
+                {isSaving ? "Guardando..." : "Guardar Cambios"}
             </button>
 
             <button
@@ -267,6 +292,7 @@ export default function Profile() {
                     router.push("/login");
                 }}
                 className="fixed bottom-12 left-6 right-6 py-4 bg-zinc-900 border border-white/5 text-red-500 font-bold rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-transform"
+                style={{ bottom: "calc(1rem + env(safe-area-inset-bottom))" }}
             >
                 Cerrar Sesión
             </button>

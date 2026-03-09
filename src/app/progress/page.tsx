@@ -88,10 +88,10 @@ export default function Progress() {
     const ffmi = profile ? (profile.peso_kg * (1 - (profile.porcentaje_grasa / 100)) / ((profile.altura_cm / 100) ** 2)).toFixed(1) : "0.0";
     const averageCalories = Math.round(processedCalorieData.reduce((acc, d) => acc + d.value, 0) / (processedCalorieData.length || 1));
 
-    if (loading) return <div className="min-h-screen bg-black flex items-center justify-center"><Zap className="w-8 h-8 text-fuchsia-500 animate-pulse" /></div>;
+    if (loading) return <div className="app-screen flex items-center justify-center"><Zap className="w-8 h-8 text-fuchsia-500 animate-pulse" /></div>;
 
     return (
-        <main className="min-h-screen bg-black text-white p-6 pb-32">
+        <main className="app-screen text-white p-6 pb-32">
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-4">

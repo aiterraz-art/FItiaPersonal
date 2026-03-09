@@ -1,9 +1,9 @@
-import { Inter, Manrope } from "next/font/google";
+import { Manrope, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({
+const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-space-grotesk",
 });
 
 const manrope = Manrope({
@@ -12,11 +12,10 @@ const manrope = Manrope({
 });
 
 export const viewport = {
-  themeColor: "#000000",
+  themeColor: "#0a0614",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  viewportFit: "cover" as const,
 };
 
 export const metadata = {
@@ -41,7 +40,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es" className={`${inter.variable} ${manrope.variable}`}>
+    <html lang="es" className={`${spaceGrotesk.variable} ${manrope.variable}`}>
       <body className="antialiased overflow-x-hidden">{children}</body>
     </html>
   );

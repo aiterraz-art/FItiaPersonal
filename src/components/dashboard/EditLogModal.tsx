@@ -46,7 +46,7 @@ export function EditLogModal({ isOpen, onClose, log, onSave }: EditLogModalProps
     };
 
     return (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-60 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
             <div className="w-full max-w-sm bg-[#050510] rounded-3xl p-8 border border-fuchsia-500/20 shadow-2xl shadow-fuchsia-500/20 animate-in zoom-in-95 duration-200">
                 <div className="flex justify-between items-start mb-6">
                     <h2 className="text-xl font-black bg-linear-to-r from-fuchsia-300 to-blue-300 bg-clip-text text-transparent italic">

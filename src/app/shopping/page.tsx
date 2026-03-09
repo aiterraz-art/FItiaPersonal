@@ -1,33 +1,39 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { ChevronLeft, ShoppingBag, CheckCircle2, Circle, Trash2, Printer, Share2 } from "lucide-react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { ChevronLeft, ShoppingBag, CheckCircle2, Share2 } from "lucide-react";
 import { cn, formatDateAsLocalISO } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { BottomNav } from "@/components/navigation/BottomNav";
 
+type FoodItemRef = {
+    nombre: string;
+};
+
+type RecipeIngredientRef = {
+    gramos: number;
+    food_items: FoodItemRef | null;
+};
+
+type RecipeRef = {
+    porciones: number | null;
+    recipe_ingredients: RecipeIngredientRef[] | null;
+};
+
+type WeeklyLog = {
+    gramos: number;
+    food_items: FoodItemRef | null;
+    recipes: RecipeRef | null;
+};
+
 export default function ShoppingList() {
     const router = useRouter();
-    const [userId, setUserId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
-    const [weeklyLogs, setWeeklyLogs] = useState<any[]>([]);
+    const [weeklyLogs, setWeeklyLogs] = useState<WeeklyLog[]>([]);
     const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
 
-    useEffect(() => {
-        async function initAuth() {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                setUserId(user.id);
-                fetchWeeklyLogs(user.id);
-            } else {
-                router.push("/login");
-            }
-        }
-        initAuth();
-    }, [router]);
-
-    const fetchWeeklyLogs = async (uid: string) => {
+    const fetchWeeklyLogs = useCallback(async (uid: string) => {
         setLoading(true);
         const now = new Date();
         const day = now.getDay(); // 0=domingo, 1=lunes...
@@ -57,20 +63,40 @@ export default function ShoppingList() {
             .gte('fecha', startOfWeek)
             .lte('fecha', endOfWeek);
 
-        if (data) setWeeklyLogs(data);
+        if (error) {
+            console.error("Error loading shopping list logs:", error);
+            setWeeklyLogs([]);
+            setLoading(false);
+            return;
+        }
+
+        setWeeklyLogs((data as WeeklyLog[]) || []);
         setLoading(false);
-    };
+    }, []);
+
+    useEffect(() => {
+        async function initAuth() {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                fetchWeeklyLogs(user.id);
+            } else {
+                router.push("/login");
+            }
+        }
+        initAuth();
+    }, [fetchWeeklyLogs, router]);
 
     const aggregatedItems = useMemo(() => {
         const items: Record<string, { nombre: string, gramos: number, unit: string }> = {};
 
-        weeklyLogs.forEach(entry => {
+        weeklyLogs.forEach((entry) => {
             if (entry.food_items) {
                 const name = entry.food_items.nombre;
                 if (!items[name]) items[name] = { nombre: name, gramos: 0, unit: "g" };
                 items[name].gramos += entry.gramos;
             } else if (entry.recipes) {
-                (entry.recipes.recipe_ingredients || []).forEach((ing: any) => {
+                const recipe = entry.recipes;
+                (recipe.recipe_ingredients || []).forEach((ing) => {
                     if (ing.food_items) {
                         const name = ing.food_items.nombre;
                         if (!items[name]) items[name] = { nombre: name, gramos: 0, unit: "g" };
@@ -79,10 +105,7 @@ export default function ShoppingList() {
                         // We need (ing.gramos / recipe.porciones) * (entry.gramos / 100?) 
                         // Wait, food_logs for recipes has 'gramos' as number of portions or total grams?
                         // Assuming food_logs.gramos is total grams of the recipe consumed.
-                        const portionFactor = entry.gramos / (entry.recipes.porciones || 1);
-                        // If gramos in food_log is portions, then portionFactor = entry.gramos.
-                        // Based on page.tsx, if it's a recipe, we use grams.
-                        items[name].gramos += (ing.gramos / (entry.recipes.porciones || 1)) * (entry.gramos / 100);
+                        items[name].gramos += (ing.gramos / (recipe.porciones || 1)) * (entry.gramos / 100);
                     }
                 });
             }
@@ -96,7 +119,7 @@ export default function ShoppingList() {
     };
 
     return (
-        <main className="min-h-screen bg-black text-white p-6 pb-32">
+        <main className="app-screen text-white p-6 pb-32">
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-4">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { cn, formatDateAsLocalISO, getTodayLocalDate } from "@/lib/utils";
 
@@ -13,12 +13,6 @@ interface MonthlyCalendarProps {
 
 export function MonthlyCalendar({ isOpen, onClose, selectedDate, onDateSelect }: MonthlyCalendarProps) {
     const [viewDate, setViewDate] = useState(new Date(selectedDate + "T12:00:00"));
-
-    useEffect(() => {
-        if (isOpen) {
-            setViewDate(new Date(selectedDate + "T12:00:00"));
-        }
-    }, [isOpen, selectedDate]);
 
     if (!isOpen) return null;
 
@@ -49,7 +43,7 @@ export function MonthlyCalendar({ isOpen, onClose, selectedDate, onDateSelect }:
     };
 
     return (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-70 flex items-center justify-center p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[70] flex items-center justify-center p-4 animate-in fade-in duration-200">
             <div className="w-full max-w-sm bg-[#050510] rounded-[2.5rem] border border-fuchsia-500/20 shadow-2xl p-6">
                 <div className="flex justify-between items-center mb-6">
                     <button onClick={prevMonth} className="p-2 text-zinc-400 hover:text-white transition-colors">
@@ -64,7 +58,7 @@ export function MonthlyCalendar({ isOpen, onClose, selectedDate, onDateSelect }:
                 </div>
 
                 <div className="grid grid-cols-7 gap-1 mb-2">
-                    {["L", "M", "M", "J", "V", "S", "D"].map((d) => (
+                    {["L", "Ma", "Mi", "J", "V", "S", "D"].map((d) => (
                         <span key={d} className="text-[10px] font-black text-zinc-600 text-center py-2">
                             {d}
                         </span>

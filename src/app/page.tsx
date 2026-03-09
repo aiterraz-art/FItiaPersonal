@@ -332,27 +332,61 @@ function DayContent({
     if (!userId || copying) return;
     setCopying(true);
     try {
-      const { data: prevLogs, error: fetchError } = await supabase
+      const primaryFetch = await supabase
         .from("food_logs")
-        .select("food_id, comida_tipo, gramos")
+        .select("food_id, recipe_id, comida_tipo, gramos, original_cantidad, original_unidad")
         .eq("user_id", userId)
         .eq("fecha", dateToCopy);
 
-      if (fetchError || !prevLogs || prevLogs.length === 0) {
+      let prevLogs = primaryFetch.data;
+      let fetchError = primaryFetch.error;
+
+      // Backward compatibility when original_* columns are not present yet.
+      if (fetchError?.message?.includes("original_cantidad")) {
+        const fallbackFetch = await supabase
+          .from("food_logs")
+          .select("food_id, recipe_id, comida_tipo, gramos")
+          .eq("user_id", userId)
+          .eq("fecha", dateToCopy);
+
+        prevLogs = (fallbackFetch.data || []).map((log) => ({
+          ...log,
+          original_cantidad: null,
+          original_unidad: null,
+        }));
+        fetchError = fallbackFetch.error;
+      }
+
+      if (fetchError) {
+        alert("Error al leer la dieta del día seleccionado.");
+        return;
+      }
+
+      if (!prevLogs || prevLogs.length === 0) {
         alert("No hay registros en la fecha seleccionada para copiar.");
-        setCopying(false);
         return;
       }
 
       const newLogs = prevLogs.map(log => ({
         user_id: userId,
         food_id: log.food_id,
+        recipe_id: log.recipe_id,
         comida_tipo: log.comida_tipo,
         gramos: log.gramos,
+        original_cantidad: log.original_cantidad ?? null,
+        original_unidad: log.original_unidad ?? null,
+        consumido: false,
         fecha: date
       }));
 
-      const { error: insertError } = await supabase.from("food_logs").insert(newLogs);
+      let { error: insertError } = await supabase.from("food_logs").insert(newLogs);
+
+      if (insertError?.message?.includes("original_cantidad")) {
+        const fallbackLogs = newLogs.map(({ original_cantidad, original_unidad, ...rest }) => rest);
+        const { error: fallbackInsertError } = await supabase.from("food_logs").insert(fallbackLogs);
+        insertError = fallbackInsertError;
+      }
+
       if (insertError) {
         alert("Error al copiar la dieta.");
       } else {
@@ -578,6 +612,7 @@ function DayContent({
       </div>
 
       <MonthlyCalendar
+        key={`copy-${isCopyCalendarOpen ? "open" : "closed"}-${date}`}
         isOpen={isCopyCalendarOpen}
         onClose={() => setIsCopyCalendarOpen(false)}
         selectedDate={date}
@@ -591,7 +626,7 @@ function DayContent({
 
 export default function DashboardPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-black flex items-center justify-center"><div className="w-8 h-8 border-2 border-fuchsia-500 border-t-transparent rounded-full animate-spin" /></div>}>
+    <Suspense fallback={<div className="app-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-fuchsia-500 border-t-transparent rounded-full animate-spin" /></div>}>
       <Dashboard />
     </Suspense>
   )
@@ -619,10 +654,9 @@ function Dashboard() {
   const [carouselDates, setCarouselDates] = useState<string[]>(() => buildDateWindow(dateParam || getTodayLocalDate()));
 
   useEffect(() => {
-    if (dateParam && dateParam !== selectedDate) {
-      setSelectedDate(dateParam);
-    }
-  }, [dateParam, selectedDate]);
+    if (!dateParam) return;
+    setSelectedDate(prev => (prev === dateParam ? prev : dateParam));
+  }, [dateParam]);
 
   // Proactive Multi-Day Preloading (±3 days)
   usePreloader(userId, selectedDate);
@@ -789,7 +823,7 @@ function Dashboard() {
   };
 
   return (
-    <main className="min-h-screen pb-32 overflow-x-hidden">
+    <main className="app-screen pb-32 overflow-x-hidden">
       <header className="px-6 pt-12 pb-10 border-b border-fuchsia-500/10">
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-3">
@@ -840,7 +874,7 @@ function Dashboard() {
                   className="flex flex-col items-center gap-2 focus:outline-none group shrink-0 w-10 snap-center"
                 >
                   <span className={cn("text-[10px] font-bold uppercase", isSelected ? "text-fuchsia-400" : "text-zinc-500")}>
-                    {["D", "L", "M", "M", "J", "V", "S"][d.getDay()]}
+                    {["D", "L", "Ma", "Mi", "J", "V", "S"][d.getDay()]}
                   </span>
                   <div className={cn("w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all", isSelected ? "bg-linear-to-r from-fuchsia-500 to-blue-500 text-white scale-110 shadow-lg shadow-fuchsia-500/30" : "text-white hover:bg-fuchsia-500/10")}>
                     {d.getDate()}
@@ -887,7 +921,13 @@ function Dashboard() {
         </motion.div>
       </div>
 
-      <MonthlyCalendar isOpen={isCalendarOpen} onClose={() => setIsCalendarOpen(false)} selectedDate={selectedDate} onDateSelect={setSelectedDate} />
+      <MonthlyCalendar
+        key={`dashboard-${isCalendarOpen ? "open" : "closed"}-${selectedDate}`}
+        isOpen={isCalendarOpen}
+        onClose={() => setIsCalendarOpen(false)}
+        selectedDate={selectedDate}
+        onDateSelect={setSelectedDate}
+      />
       <BottomNav />
     </main>
   );

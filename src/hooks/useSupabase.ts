@@ -571,7 +571,11 @@ export function useRecipes(userId?: string) {
     const [loading, setLoading] = useState(true);
 
     const fetchRecipes = useCallback(async () => {
-        if (!userId) return;
+        if (!userId) {
+            setRecipes([]);
+            setLoading(false);
+            return;
+        }
         setLoading(true);
         const { data, error } = await supabase
             .from('recipes')

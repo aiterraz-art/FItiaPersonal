@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import {
@@ -24,12 +24,26 @@ export default function NewRecipePage() {
     const [instrucciones, setInstrucciones] = useState("");
     const [ingredients, setIngredients] = useState<any[]>([]);
     const [userId, setUserId] = useState<string | null>(null);
+    const [authChecked, setAuthChecked] = useState(false);
 
     const [search, setSearch] = useState("");
     const [searchResults, setSearchResults] = useState<any[]>([]);
     const [searching, setSearching] = useState(false);
     const [aiLoading, setAiLoading] = useState(false);
     const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        async function getAuth() {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                setUserId(user.id);
+            } else {
+                router.push("/login");
+            }
+            setAuthChecked(true);
+        }
+        getAuth();
+    }, [router]);
 
     const calculateTotals = () => {
         return ingredients.reduce((acc, curr) => {
@@ -51,34 +65,29 @@ export default function NewRecipePage() {
         grasas: (totals.grasas / porciones).toFixed(1),
     };
 
-    useEffect(() => {
-        async function getAuth() {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) setUserId(user.id);
-        }
-        getAuth();
+    const performSearch = useCallback(async (query: string) => {
+        setSearching(true);
+        const { data } = await supabase
+            .from("food_items")
+            .select("*")
+            .ilike("nombre", `%${query}%`)
+            .limit(5);
 
+        if (data) setSearchResults(data);
+        setSearching(false);
+    }, []);
+
+    useEffect(() => {
         const delayDebounce = setTimeout(() => {
-            if (search.trim().length > 2) {
-                performSearch();
+            const query = search.trim();
+            if (query.length > 2) {
+                performSearch(query);
             } else {
                 setSearchResults([]);
             }
         }, 300);
         return () => clearTimeout(delayDebounce);
-    }, [search]);
-
-    const performSearch = async () => {
-        setSearching(true);
-        const { data, error } = await supabase
-            .from("food_items")
-            .select("*")
-            .ilike("nombre", `%${search}%`)
-            .limit(5);
-
-        if (data) setSearchResults(data);
-        setSearching(false);
-    };
+    }, [search, performSearch]);
 
     const handleAISearch = async () => {
         if (!search) return;
@@ -203,8 +212,16 @@ export default function NewRecipePage() {
         }
     };
 
+    if (!authChecked) {
+        return (
+            <main className="app-screen flex items-center justify-center">
+                <Loader2 className="w-8 h-8 text-violet-500 animate-spin" />
+            </main>
+        );
+    }
+
     return (
-        <main className="min-h-screen pb-48 pt-8 px-4 max-w-lg mx-auto">
+        <main className="app-screen pb-48 pt-8 px-4 max-w-lg mx-auto">
             <header className="mb-6 flex items-center gap-4">
                 <button onClick={() => router.back()} className="p-2 -ml-2 text-zinc-400 hover:text-white transition-colors">
                     <ArrowLeft className="w-6 h-6" />

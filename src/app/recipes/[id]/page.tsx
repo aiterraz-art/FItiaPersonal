@@ -27,7 +27,7 @@ export default function RecipeDetailPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center gap-4">
+            <div className="app-screen flex flex-col items-center justify-center gap-4">
                 <Loader2 className="w-8 h-8 text-violet-500 animate-spin" />
                 <p className="text-zinc-500 font-medium">Cargando receta...</p>
             </div>
@@ -36,7 +36,7 @@ export default function RecipeDetailPage() {
 
     if (!recipe) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-6 text-center">
+            <div className="app-screen flex flex-col items-center justify-center gap-4 px-6 text-center">
                 <div className="w-16 h-16 rounded-2xl bg-zinc-900 flex items-center justify-center mb-2">
                     <UtensilsCrossed className="w-8 h-8 text-zinc-600" />
                 </div>
@@ -66,7 +66,7 @@ export default function RecipeDetailPage() {
     };
 
     return (
-        <main className="min-h-screen pb-48 pt-8 px-4 max-w-lg mx-auto">
+        <main className="app-screen pb-48 pt-8 px-4 max-w-lg mx-auto">
             <header className="mb-6 flex items-center gap-4">
                 <button onClick={() => router.back()} className="p-2 -ml-2 text-zinc-400 hover:text-white transition-colors">
                     <ArrowLeft className="w-6 h-6" />
@@ -148,7 +148,7 @@ export default function RecipeDetailPage() {
 
             {/* Cooking Mode Overlay */}
             {cookingMode && (
-                <div className="fixed inset-0 bg-[#050510] z-100 flex flex-col p-8 animate-in fade-in duration-300">
+                <div className="fixed inset-0 bg-[#050510] z-[100] flex flex-col p-8 animate-in fade-in duration-300">
                     <div className="flex justify-between items-center mb-12">
                         <p className="text-[10px] font-black uppercase tracking-[0.3em] text-violet-500">Paso {currentStep + 1} de {recipe.instrucciones.split('\n').filter((s: string) => s.trim()).length}</p>
                         <button onClick={() => setCookingMode(false)} className="p-2 bg-white/5 rounded-full border border-white/10">

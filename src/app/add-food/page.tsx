@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 export default function AddFood() {
     return (
         <Suspense fallback={
-            <div className="min-h-screen bg-black flex items-center justify-center">
+            <div className="app-screen flex items-center justify-center">
                 <div className="w-8 h-8 border-2 border-fuchsia-500 border-t-transparent rounded-full animate-spin" />
             </div>
         }>
@@ -657,7 +657,7 @@ function AddFoodContent() {
     };
 
     return (
-        <main className="min-h-screen text-white p-6 font-sans">
+        <main className="app-screen text-white p-6 font-sans">
             <div className="flex items-center justify-between mb-8">
                 <button onClick={() => selectedFood ? setSelectedFood(null) : router.push(`/?date=${targetDate}`, { scroll: false })} className="p-2 -ml-2">
                     <ChevronLeft className="w-6 h-6" />
@@ -684,7 +684,7 @@ function AddFoodContent() {
 
             {/* ── Edit Scanned Food Modal ─────────────────────────────── */}
             {showEditModal && editDraft && (
-                <div className="fixed inset-0 z-100 flex items-end justify-center">
+                <div className="fixed inset-0 z-[100] flex items-end justify-center">
                     {/* Backdrop */}
                     <div
                         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
@@ -1175,7 +1175,10 @@ function AddFoodContent() {
                         <span className="text-xs font-bold">Reportar un problema</span>
                     </div>
 
-                    <div className="fixed bottom-0 left-0 right-0 bg-[#0a0614]/90 backdrop-blur-2xl border-t border-violet-500/15 p-6 z-50">
+                    <div
+                        className="fixed bottom-0 left-0 right-0 bg-[#0a0614]/90 backdrop-blur-2xl border-t border-violet-500/15 p-6 z-50"
+                        style={{ paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom))" }}
+                    >
                         <div className="flex gap-4 mb-6">
                             <div className="flex-1 space-y-2">
                                 <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block text-center">

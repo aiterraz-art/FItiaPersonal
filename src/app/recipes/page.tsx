@@ -1,26 +1,33 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRecipes, useProfile } from "@/hooks/useSupabase";
+import { useRecipes } from "@/hooks/useSupabase";
 import { Plus, BookOpen, ChevronRight, Loader2, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { BottomNav } from "@/components/navigation/BottomNav";
+import { useRouter } from "next/navigation";
 
 export default function RecipesPage() {
+    const router = useRouter();
     const [userId, setUserId] = useState<string | null>(null);
+    const [authChecked, setAuthChecked] = useState(false);
     const { recipes, loading: recipesLoading, refetch } = useRecipes(userId || undefined);
-    const { profile } = useProfile(userId || undefined);
 
     useEffect(() => {
         async function getAuth() {
             const { data: { user } } = await supabase.auth.getUser();
-            if (user) setUserId(user.id);
+            if (user) {
+                setUserId(user.id);
+            } else {
+                router.push("/login");
+            }
+            setAuthChecked(true);
         }
         getAuth();
-    }, []);
+    }, [router]);
 
-    const loading = !userId || recipesLoading;
+    const loading = !authChecked || recipesLoading;
 
     const calculatePortionMacros = (recipe: any) => {
         const ingredients = recipe.recipe_ingredients || [];
@@ -58,7 +65,7 @@ export default function RecipesPage() {
     };
 
     return (
-        <main className="min-h-screen pb-32 pt-8 px-4 max-w-lg mx-auto">
+        <main className="app-screen pb-32 pt-8 px-4 max-w-lg mx-auto">
             <header className="mb-8">
                 <div className="flex justify-between items-end mb-2">
                     <div>
