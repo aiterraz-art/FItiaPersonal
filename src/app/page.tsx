@@ -292,7 +292,7 @@ function DayContent({
       setLogs(originalLogs);
       alert("Error al eliminar el registro.");
     } else {
-      refetch();
+      refetch({ force: true });
     }
   };
 
@@ -308,7 +308,7 @@ function DayContent({
     setCopying(true);
     try {
       await deleteAllLogsForDay(userId, date);
-      refetch();
+      refetch({ force: true });
     } catch {
       alert("Error al borrar los registros.");
     } finally {
@@ -333,7 +333,7 @@ function DayContent({
     try {
       await toggleAllConsumed(userId, date, mealType, status);
     } catch {
-      refetch();
+      refetch({ force: true });
       alert("Error al actualizar la comida completa.");
     }
   };
@@ -410,7 +410,7 @@ function DayContent({
       } else {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
-        refetch();
+        refetch({ force: true });
       }
     } catch (err) {
       console.error("Copy error:", err);
@@ -464,7 +464,7 @@ function DayContent({
       setOrderedMealNames(list);
       await updateMealOrder(list);
       await refetchProfile();
-      refetch();
+      refetch({ force: true });
       keepViewport(currentScrollY);
     }
   };
@@ -493,7 +493,7 @@ function DayContent({
         original_unidad: 'HIDDEN_MEAL'
       });
 
-      refetch();
+      refetch({ force: true });
     } catch {
       setOrderedMealNames(originalUIOrder);
       alert(`No se pudo eliminar la comida.`);
@@ -515,7 +515,7 @@ function DayContent({
       if (!nextOrder.includes(trimmedNewName)) nextOrder.push(trimmedNewName);
       await updateMealOrder(nextOrder);
       await refetchProfile();
-      refetch();
+      refetch({ force: true });
     } catch {
       setOrderedMealNames(originalUIOrder);
       alert(`No se pudo renombrar la comida.`);
@@ -610,7 +610,7 @@ function DayContent({
       </section>
 
       {userId && (
-        <AISuggestion deficit={deficit} macros={{ p: 20, c: 20, g: 5 }} userId={userId} date={date} onPlanApplied={refetch} />
+        <AISuggestion deficit={deficit} macros={{ p: 20, c: 20, g: 5 }} userId={userId} date={date} onPlanApplied={() => refetch({ force: true })} />
       )}
 
       <div className="fixed -left-[9999px] top-0 pointer-events-none overflow-hidden h-0">
