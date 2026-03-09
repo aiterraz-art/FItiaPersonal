@@ -961,31 +961,80 @@ export function useWeeklyPlan(userId?: string, weekStart?: string) {
         if (planError) console.error("Error fetching weekly plan:", planError);
         setPlan((planData as WeeklyPlan) || null);
 
-        if (!planData) {
-            setEntries([]);
-            setLoading(false);
-            return;
+        let entryData: any[] = [];
+        if (planData) {
+            const { data, error: entryError } = await supabase
+                .from('weekly_plan_entries')
+                .select(`
+                    *,
+                    food_items (*),
+                    recipes (
+                        *,
+                        recipe_ingredients (
+                            *,
+                            food_items (*)
+                        )
+                    )
+                `)
+                .eq('weekly_plan_id', planData.id)
+                .order('plan_date', { ascending: true })
+                .order('position', { ascending: true });
+
+            if (entryError) console.error("Error fetching weekly plan entries:", entryError);
+            entryData = data || [];
         }
 
-        const { data: entryData, error: entryError } = await supabase
-            .from('weekly_plan_entries')
-            .select(`
-                *,
-                food_items (*),
-                recipes (
-                    *,
-                    recipe_ingredients (
-                        *,
-                        food_items (*)
-                    )
-                )
-            `)
-            .eq('weekly_plan_id', planData.id)
-            .order('plan_date', { ascending: true })
-            .order('position', { ascending: true });
+        const weekDates = Array.from({ length: 7 }, (_, index) => {
+            const date = new Date(`${weekStart}T12:00:00`);
+            date.setDate(date.getDate() + index);
+            return formatDateAsLocalISO(date);
+        });
+        const plannedDates = new Set(entryData.map((entry) => entry.plan_date));
+        const missingDates = weekDates.filter((date) => !plannedDates.has(date));
 
-        if (entryError) console.error("Error fetching weekly plan entries:", entryError);
-        setEntries((entryData || []) as PlanEntry[]);
+        if (missingDates.length > 0) {
+            const { data: logData, error: logError } = await supabase
+                .from('food_logs')
+                .select(`
+                    *,
+                    food_items (*),
+                    recipes (
+                        *,
+                        recipe_ingredients (
+                            *,
+                            food_items (*)
+                        )
+                    )
+                `)
+                .eq('user_id', userId)
+                .in('fecha', missingDates)
+                .order('fecha', { ascending: true })
+                .order('created_at', { ascending: true });
+
+            if (logError) {
+                console.error("Error fetching weekly fallback food logs:", logError);
+            } else if (logData?.length) {
+                const fallbackEntries = logData.map((log: any, index: number) => ({
+                    id: `food-log-${log.id}`,
+                    weekly_plan_id: planData?.id || `logs-${weekStart}`,
+                    plan_date: log.fecha,
+                    meal_type: log.comida_tipo,
+                    food_id: log.food_id,
+                    recipe_id: log.recipe_id,
+                    gramos: log.gramos,
+                    original_cantidad: log.original_cantidad ?? null,
+                    original_unidad: log.original_unidad ?? null,
+                    position: index,
+                    is_completed: !!log.consumido,
+                    day_type: 'standard',
+                    food_items: log.food_items,
+                    recipes: log.recipes
+                }));
+                entryData = [...entryData, ...fallbackEntries];
+            }
+        }
+
+        setEntries(entryData as PlanEntry[]);
         setLoading(false);
     }, [userId, weekStart]);
 
@@ -1068,25 +1117,18 @@ export function useWeeklyPlanActions() {
     };
 
     const duplicateDayPlan = async (userId: string, sourceDate: string, targetDate: string) => {
-        const weekStart = getWeekStart(sourceDate);
-        const plan = await ensureWeeklyPlan(userId, weekStart);
-        const { data: sourceEntries, error: sourceError } = await supabase
-            .from('weekly_plan_entries')
-            .select('*')
-            .eq('weekly_plan_id', plan.id)
-            .eq('plan_date', sourceDate)
-            .order('position', { ascending: true });
-        if (sourceError) throw sourceError;
-
+        const sourceEntries = await fetchEntriesForDate(userId, sourceDate);
+        const targetWeekStart = getWeekStart(targetDate);
+        const targetPlan = await ensureWeeklyPlan(userId, targetWeekStart);
         await supabase
             .from('weekly_plan_entries')
             .delete()
-            .eq('weekly_plan_id', plan.id)
+            .eq('weekly_plan_id', targetPlan.id)
             .eq('plan_date', targetDate);
 
         if (!sourceEntries || sourceEntries.length === 0) return;
         const rows = sourceEntries.map((entry) => ({
-            weekly_plan_id: plan.id,
+            weekly_plan_id: targetPlan.id,
             plan_date: targetDate,
             meal_type: entry.meal_type,
             food_id: entry.food_id,
@@ -1489,3 +1531,56 @@ function aggregateShoppingItems(entries: any[]): ShoppingListItem[] {
 
     return Object.values(aggregated).sort((a, b) => a.ingredient_name.localeCompare(b.ingredient_name));
 }
+    const fetchEntriesForDate = async (userId: string, date: string) => {
+        const sourceWeekStart = getWeekStart(date);
+        const { data: sourcePlan } = await supabase
+            .from('weekly_plans')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('week_start', sourceWeekStart)
+            .maybeSingle();
+
+        if (sourcePlan) {
+            const { data: sourceEntries, error: sourceError } = await supabase
+                .from('weekly_plan_entries')
+                .select('*')
+                .eq('weekly_plan_id', sourcePlan.id)
+                .eq('plan_date', date)
+                .order('position', { ascending: true });
+
+            if (sourceError) throw sourceError;
+            if (sourceEntries && sourceEntries.length > 0) {
+                return sourceEntries.map((entry) => ({
+                    meal_type: entry.meal_type,
+                    food_id: entry.food_id,
+                    recipe_id: entry.recipe_id,
+                    gramos: entry.gramos,
+                    original_cantidad: entry.original_cantidad,
+                    original_unidad: entry.original_unidad,
+                    position: entry.position,
+                    day_type: entry.day_type || 'standard'
+                }));
+            }
+        }
+
+        const { data: sourceLogs, error: logsError } = await supabase
+            .from('food_logs')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('fecha', date)
+            .order('created_at', { ascending: true });
+
+        if (logsError) throw logsError;
+        return (sourceLogs || [])
+            .filter((log) => log.original_unidad !== 'HIDDEN_MEAL')
+            .map((log, index) => ({
+                meal_type: log.comida_tipo,
+                food_id: log.food_id,
+                recipe_id: log.recipe_id,
+                gramos: log.gramos,
+                original_cantidad: log.original_cantidad ?? null,
+                original_unidad: log.original_unidad ?? null,
+                position: index,
+                day_type: 'standard'
+            }));
+    };
