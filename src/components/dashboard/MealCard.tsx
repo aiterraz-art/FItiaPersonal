@@ -22,6 +22,9 @@ interface MealCardProps {
     date: string;
     onDelete?: (id: string) => void;
     onEdit?: (logId: string) => void;
+    onDuplicate?: (id: string) => void;
+    onCopyTomorrow?: (id: string) => void;
+    onMoveToDate?: (id: string) => void;
     onToggleConsumed?: (id: string, currentStatus: boolean) => void;
     onToggleAllConsumed?: (status: boolean) => void;
     onMoveUp?: () => void;
@@ -35,11 +38,17 @@ function FoodLogItem({
     item,
     onDelete,
     onEdit,
+    onDuplicate,
+    onCopyTomorrow,
+    onMoveToDate,
     onToggleConsumed
 }: {
     item: FoodItem;
     onDelete?: (id: string) => void;
     onEdit?: (logId: string) => void;
+    onDuplicate?: (id: string) => void;
+    onCopyTomorrow?: (id: string) => void;
+    onMoveToDate?: (id: string) => void;
     onToggleConsumed?: (id: string, currentStatus: boolean) => void;
 }) {
     const x = useMotionValue(0);
@@ -107,9 +116,9 @@ function FoodLogItem({
                         <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">{item.estado}</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-3 ml-2 shrink-0">
-                    <div className={cn(
-                        "text-right transition-opacity duration-150 min-w-[50px]",
+                    <div className="flex items-center gap-3 ml-2 shrink-0">
+                        <div className={cn(
+                            "text-right transition-opacity duration-150 min-w-[50px]",
                         item.consumido ? "opacity-40" : "opacity-100"
                     )}>
                         <p className="text-sm font-black">
@@ -129,6 +138,23 @@ function FoodLogItem({
                             })()}
                         </p>
                         <p className="text-[10px] text-zinc-500 font-bold">{item.kcal} kcal</p>
+                        <div className="flex justify-end gap-1 mt-2">
+                            {onDuplicate && (
+                                <button onClick={(e) => { e.stopPropagation(); onDuplicate(item.id); }} className="px-1.5 py-1 rounded bg-white/5 text-[9px] font-black uppercase tracking-wider text-zinc-400">
+                                    Duplicar
+                                </button>
+                            )}
+                            {onCopyTomorrow && (
+                                <button onClick={(e) => { e.stopPropagation(); onCopyTomorrow(item.id); }} className="px-1.5 py-1 rounded bg-white/5 text-[9px] font-black uppercase tracking-wider text-zinc-400">
+                                    Mañana
+                                </button>
+                            )}
+                            {onMoveToDate && (
+                                <button onClick={(e) => { e.stopPropagation(); onMoveToDate(item.id); }} className="px-1.5 py-1 rounded bg-white/5 text-[9px] font-black uppercase tracking-wider text-zinc-400">
+                                    Mover
+                                </button>
+                            )}
+                        </div>
                     </div>
                     <motion.div
                         whileTap={{ scale: 0.92 }}
@@ -169,6 +195,9 @@ export function MealCard({
     date,
     onDelete,
     onEdit,
+    onDuplicate,
+    onCopyTomorrow,
+    onMoveToDate,
     onToggleConsumed,
     onToggleAllConsumed,
     onMoveUp,
@@ -270,13 +299,16 @@ export function MealCard({
 
             <div className="space-y-4 mb-6">
                 {items.length > 0 ? items.map((item) => (
-                    <FoodLogItem
-                        key={item.id}
-                        item={item}
-                        onDelete={onDelete}
-                        onEdit={onEdit}
-                        onToggleConsumed={onToggleConsumed}
-                    />
+                        <FoodLogItem
+                            key={item.id}
+                            item={item}
+                            onDelete={onDelete}
+                            onEdit={onEdit}
+                            onDuplicate={onDuplicate}
+                            onCopyTomorrow={onCopyTomorrow}
+                            onMoveToDate={onMoveToDate}
+                            onToggleConsumed={onToggleConsumed}
+                        />
                 )) : (
                     <p className="text-xs text-zinc-600 font-medium italic py-2">Sin alimentos registrados</p>
                 )}

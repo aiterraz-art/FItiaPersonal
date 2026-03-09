@@ -22,6 +22,8 @@ export default function Profile() {
         meta_c: 200,
         meta_g: 60,
         fase: "Pérdida de Grasa",
+        default_day_type: "standard",
+        week_starts_on: "monday",
     });
 
     useEffect(() => {
@@ -51,6 +53,8 @@ export default function Profile() {
                     meta_c: data.meta_c || 200,
                     meta_g: data.meta_g || 60,
                     fase: data.fase,
+                    default_day_type: data.default_day_type || "standard",
+                    week_starts_on: data.week_starts_on || "monday",
                 });
             } else {
                 setProfile(p => ({ ...p, id: user.id }));
@@ -83,6 +87,8 @@ export default function Profile() {
             meta_c: Math.max(0, Math.round((profile.meta_kcal - (profile.meta_p * 4) - (profile.meta_g * 9)) / 4)),
             meta_g: profile.meta_g,
             fase: profile.fase,
+            default_day_type: profile.default_day_type,
+            week_starts_on: profile.week_starts_on,
             updated_at: new Date().toISOString(),
         });
 
@@ -224,6 +230,35 @@ export default function Profile() {
                                 <span className="text-right w-16 font-black text-fuchsia-400">{derivedCarbs}</span>
                                 <span className="text-xs text-fuchsia-500/80 font-bold">g</span>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="glass-card p-6">
+                    <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-widest mb-6">Planificación</h3>
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center bg-white/5 rounded-xl px-4 py-3">
+                            <span className="text-zinc-400 font-medium text-sm">Tipo de día por defecto</span>
+                            <select
+                                value={profile.default_day_type}
+                                onChange={(e) => setProfile({ ...profile, default_day_type: e.target.value })}
+                                className="bg-transparent text-right font-bold focus:outline-none"
+                            >
+                                <option value="standard">Standard</option>
+                                <option value="training">Training</option>
+                                <option value="rest">Rest</option>
+                                <option value="free">Free</option>
+                            </select>
+                        </div>
+                        <div className="flex justify-between items-center bg-white/5 rounded-xl px-4 py-3">
+                            <span className="text-zinc-400 font-medium text-sm">Inicio de semana</span>
+                            <select
+                                value={profile.week_starts_on}
+                                onChange={(e) => setProfile({ ...profile, week_starts_on: e.target.value })}
+                                className="bg-transparent text-right font-bold focus:outline-none"
+                            >
+                                <option value="monday">Lunes</option>
+                            </select>
                         </div>
                     </div>
                 </div>

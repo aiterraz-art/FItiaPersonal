@@ -1,6 +1,6 @@
 "use client";
 
-import { LayoutGrid, BookOpen, Users, BarChart2, Zap } from "lucide-react";
+import { CalendarRange, LayoutGrid, BookOpen, Users, BarChart2, Zap } from "lucide-react";
 import { cn, getTodayLocalDate } from "@/lib/utils";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -10,10 +10,11 @@ export function BottomNav() {
     const quickAddHref = `/add-food?date=${getTodayLocalDate()}&meal=${encodeURIComponent("Almuerzo")}`;
 
     const navItems = [
-        { icon: LayoutGrid, label: "Plan", href: "/" },
+        { icon: LayoutGrid, label: "Hoy", href: "/" },
+        { icon: CalendarRange, label: "Semana", href: "/week" },
         { icon: BookOpen, label: "Recetas", href: "/recipes" },
-        { icon: Users, label: "Perfil", href: "/profile" },
         { icon: BarChart2, label: "Progreso", href: "/progress" },
+        { icon: Users, label: "Perfil", href: "/profile" },
     ];
 
     return (

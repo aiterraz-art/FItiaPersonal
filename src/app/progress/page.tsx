@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { ChevronLeft, Info, TrendingUp, Target, Scale, Zap, LayoutGrid } from "lucide-react";
+import { ChevronLeft, Info, TrendingUp, Scale, Zap, LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { useProfile, useAnalytics } from "@/hooks/useSupabase";
+import { useProfile, useAnalytics, useAdherenceAnalytics } from "@/hooks/useSupabase";
 import { ProgressChart } from "@/components/dashboard/ProgressChart";
 import { BottomNav } from "@/components/navigation/BottomNav";
 
@@ -18,6 +18,7 @@ export default function Progress() {
 
     const { profile } = useProfile(userId || undefined);
     const { weightData, calorieData, loading } = useAnalytics(userId || undefined);
+    const { summary } = useAdherenceAnalytics(userId || undefined, 7);
 
     useEffect(() => {
         async function initAuth() {
@@ -199,6 +200,19 @@ export default function Progress() {
                     <div className="p-4 rounded-3xl bg-white/5 border border-white/5 text-center">
                         <p className="text-[9px] font-black text-zinc-500 uppercase tracking-tighter mb-1">Promedio Kcal</p>
                         <p className="text-lg font-black text-fuchsia-400">{averageCalories}</p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="glass-card p-5">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-2">Adherencia 7 días</p>
+                        <p className="text-3xl font-black text-fuchsia-300">{summary.adherenceRate}%</p>
+                        <p className="text-xs text-zinc-500 mt-2">{summary.completedDays} de {summary.plannedDays} días con consumo marcado</p>
+                    </div>
+                    <div className="glass-card p-5">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-2">Proteína Promedio</p>
+                        <p className="text-3xl font-black text-blue-300">{summary.avgProtein}g</p>
+                        <p className="text-xs text-zinc-500 mt-2">Kcal promedio {summary.avgCalories}</p>
                     </div>
                 </div>
             </div>

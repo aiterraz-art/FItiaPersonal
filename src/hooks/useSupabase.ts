@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { formatDateAsLocalISO, getTodayLocalDate } from '@/lib/utils';
+import { getWeekStart, type DayTemplate, type MealTemplate, type PlanEntry, type ShoppingListItem, type WeeklyPlan } from '@/lib/planning';
 
 const PRELOAD_RADIUS_DAYS = 5;
 const hasCacheKey = (record: Record<string, unknown>, key: string) =>
@@ -25,6 +26,14 @@ const dedupeIds = (ids: string[]) => {
         output.push(id);
     });
     return output;
+};
+const buildWeeklyPlanMap = (entries: PlanEntry[]) => {
+    return entries.reduce((acc: Record<string, PlanEntry[]>, entry: PlanEntry) => {
+        const key = entry.plan_date;
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(entry);
+        return acc;
+    }, {});
 };
 
 // In-memory cache to prevent 0-reset flickering during day transitions
@@ -702,4 +711,781 @@ export function useAnalytics(userId?: string) {
     }, [fetchAnalytics]);
 
     return { weightData, calorieData, loading, refetch: fetchAnalytics };
+}
+
+export function useFavorites(userId?: string) {
+    const [favorites, setFavorites] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchFavorites = useCallback(async () => {
+        if (!userId) {
+            setFavorites([]);
+            setLoading(false);
+            return;
+        }
+
+        setLoading(true);
+        const { data, error } = await supabase
+            .from('favorite_foods')
+            .select(`
+                *,
+                food_items (*),
+                recipes (
+                    *,
+                    recipe_ingredients (
+                        *,
+                        food_items (*)
+                    )
+                )
+            `)
+            .eq('user_id', userId)
+            .order('last_used_at', { ascending: false });
+
+        if (error) console.error("Error fetching favorites:", error);
+        setFavorites(data || []);
+        setLoading(false);
+    }, [userId]);
+
+    useEffect(() => {
+        fetchFavorites();
+    }, [fetchFavorites]);
+
+    const toggleFavorite = async (target: { foodId?: string | null; recipeId?: string | null }) => {
+        if (!userId) return false;
+        const column = target.foodId ? 'food_id' : 'recipe_id';
+        const value = target.foodId || target.recipeId;
+        if (!value) return false;
+
+        const existing = favorites.find((entry) => entry[column] === value);
+        if (existing) {
+            const { error } = await supabase.from('favorite_foods').delete().eq('id', existing.id);
+            if (error) {
+                console.error("Error removing favorite:", error);
+                return false;
+            }
+            setFavorites((prev) => prev.filter((entry) => entry.id !== existing.id));
+            return false;
+        }
+
+        const payload = {
+            user_id: userId,
+            food_id: target.foodId || null,
+            recipe_id: target.recipeId || null,
+            last_used_at: new Date().toISOString()
+        };
+        const { data, error } = await supabase
+            .from('favorite_foods')
+            .insert(payload)
+            .select(`
+                *,
+                food_items (*),
+                recipes (
+                    *,
+                    recipe_ingredients (
+                        *,
+                        food_items (*)
+                    )
+                )
+            `)
+            .single();
+
+        if (error) {
+            console.error("Error creating favorite:", error);
+            return false;
+        }
+        setFavorites((prev) => [data, ...prev]);
+        return true;
+    };
+
+    return { favorites, loading, refetch: fetchFavorites, toggleFavorite };
+}
+
+export function useTemplates(userId?: string) {
+    const [mealTemplates, setMealTemplates] = useState<MealTemplate[]>([]);
+    const [dayTemplates, setDayTemplates] = useState<DayTemplate[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchTemplates = useCallback(async () => {
+        if (!userId) {
+            setMealTemplates([]);
+            setDayTemplates([]);
+            setLoading(false);
+            return;
+        }
+
+        setLoading(true);
+        const [mealRes, dayRes] = await Promise.all([
+            supabase
+                .from('meal_templates')
+                .select(`
+                    *,
+                    meal_template_items (
+                        *,
+                        food_items (*),
+                        recipes (
+                            *,
+                            recipe_ingredients (
+                                *,
+                                food_items (*)
+                            )
+                        )
+                    )
+                `)
+                .eq('user_id', userId)
+                .order('updated_at', { ascending: false }),
+            supabase
+                .from('day_templates')
+                .select(`
+                    *,
+                    day_template_items (
+                        *,
+                        food_items (*),
+                        recipes (
+                            *,
+                            recipe_ingredients (
+                                *,
+                                food_items (*)
+                            )
+                        )
+                    )
+                `)
+                .eq('user_id', userId)
+                .order('updated_at', { ascending: false })
+        ]);
+
+        if (mealRes.error) console.error("Error fetching meal templates:", mealRes.error);
+        if (dayRes.error) console.error("Error fetching day templates:", dayRes.error);
+        setMealTemplates((mealRes.data || []) as MealTemplate[]);
+        setDayTemplates((dayRes.data || []) as DayTemplate[]);
+        setLoading(false);
+    }, [userId]);
+
+    useEffect(() => {
+        fetchTemplates();
+    }, [fetchTemplates]);
+
+    const saveMealTemplate = async (name: string, mealType: string, items: any[]) => {
+        if (!userId) return null;
+        const { data: template, error } = await supabase
+            .from('meal_templates')
+            .insert({ user_id: userId, name, meal_type: mealType })
+            .select()
+            .single();
+        if (error || !template) {
+            console.error("Error saving meal template:", error);
+            return null;
+        }
+
+        const rows = items.map((item, index) => ({
+            meal_template_id: template.id,
+            food_id: item.food_id || null,
+            recipe_id: item.recipe_id || null,
+            gramos: item.gramos,
+            original_cantidad: item.original_cantidad ?? null,
+            original_unidad: item.original_unidad ?? null,
+            position: index
+        }));
+        if (rows.length > 0) {
+            const { error: itemsError } = await supabase.from('meal_template_items').insert(rows);
+            if (itemsError) {
+                console.error("Error saving meal template items:", itemsError);
+            }
+        }
+        await fetchTemplates();
+        return template.id;
+    };
+
+    const saveDayTemplate = async (name: string, dayType: string, items: any[]) => {
+        if (!userId) return null;
+        const { data: template, error } = await supabase
+            .from('day_templates')
+            .insert({ user_id: userId, name, day_type: dayType })
+            .select()
+            .single();
+        if (error || !template) {
+            console.error("Error saving day template:", error);
+            return null;
+        }
+
+        const rows = items.map((item, index) => ({
+            day_template_id: template.id,
+            meal_type: item.comida_tipo || item.meal_type,
+            food_id: item.food_id || null,
+            recipe_id: item.recipe_id || null,
+            gramos: item.gramos,
+            original_cantidad: item.original_cantidad ?? null,
+            original_unidad: item.original_unidad ?? null,
+            position: index
+        }));
+        if (rows.length > 0) {
+            const { error: itemsError } = await supabase.from('day_template_items').insert(rows);
+            if (itemsError) {
+                console.error("Error saving day template items:", itemsError);
+            }
+        }
+        await fetchTemplates();
+        return template.id;
+    };
+
+    return {
+        mealTemplates,
+        dayTemplates,
+        loading,
+        refetch: fetchTemplates,
+        saveMealTemplate,
+        saveDayTemplate
+    };
+}
+
+export function useWeeklyPlan(userId?: string, weekStart?: string) {
+    const [plan, setPlan] = useState<WeeklyPlan | null>(null);
+    const [entries, setEntries] = useState<PlanEntry[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchPlan = useCallback(async () => {
+        if (!userId || !weekStart) {
+            setPlan(null);
+            setEntries([]);
+            setLoading(false);
+            return;
+        }
+
+        setLoading(true);
+        const { data: planData, error: planError } = await supabase
+            .from('weekly_plans')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('week_start', weekStart)
+            .maybeSingle();
+
+        if (planError) console.error("Error fetching weekly plan:", planError);
+        setPlan((planData as WeeklyPlan) || null);
+
+        if (!planData) {
+            setEntries([]);
+            setLoading(false);
+            return;
+        }
+
+        const { data: entryData, error: entryError } = await supabase
+            .from('weekly_plan_entries')
+            .select(`
+                *,
+                food_items (*),
+                recipes (
+                    *,
+                    recipe_ingredients (
+                        *,
+                        food_items (*)
+                    )
+                )
+            `)
+            .eq('weekly_plan_id', planData.id)
+            .order('plan_date', { ascending: true })
+            .order('position', { ascending: true });
+
+        if (entryError) console.error("Error fetching weekly plan entries:", entryError);
+        setEntries((entryData || []) as PlanEntry[]);
+        setLoading(false);
+    }, [userId, weekStart]);
+
+    useEffect(() => {
+        fetchPlan();
+    }, [fetchPlan]);
+
+    return {
+        plan,
+        entries,
+        entriesByDate: buildWeeklyPlanMap(entries),
+        loading,
+        refetch: fetchPlan
+    };
+}
+
+export function useWeeklyPlanActions() {
+    const ensureWeeklyPlan = async (userId: string, weekStart: string) => {
+        const { data: existing, error: findError } = await supabase
+            .from('weekly_plans')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('week_start', weekStart)
+            .maybeSingle();
+
+        if (findError) throw findError;
+        if (existing) return existing as WeeklyPlan;
+
+        const { data, error } = await supabase
+            .from('weekly_plans')
+            .insert({ user_id: userId, week_start: weekStart })
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data as WeeklyPlan;
+    };
+
+    const addPlanEntry = async (userId: string, date: string, payload: any) => {
+        const weekStart = getWeekStart(date);
+        const plan = await ensureWeeklyPlan(userId, weekStart);
+        const { data: maxEntry } = await supabase
+            .from('weekly_plan_entries')
+            .select('position')
+            .eq('weekly_plan_id', plan.id)
+            .eq('plan_date', date)
+            .eq('meal_type', payload.meal_type)
+            .order('position', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        const { data, error } = await supabase
+            .from('weekly_plan_entries')
+            .insert({
+                weekly_plan_id: plan.id,
+                plan_date: date,
+                meal_type: payload.meal_type,
+                food_id: payload.food_id || null,
+                recipe_id: payload.recipe_id || null,
+                gramos: payload.gramos,
+                original_cantidad: payload.original_cantidad ?? null,
+                original_unidad: payload.original_unidad ?? null,
+                position: (maxEntry?.position ?? -1) + 1,
+                is_completed: false,
+                day_type: payload.day_type || 'standard'
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    };
+
+    const movePlanEntry = async (entryId: string, planDate: string, mealType: string, position = 0) => {
+        const { error } = await supabase
+            .from('weekly_plan_entries')
+            .update({ plan_date: planDate, meal_type: mealType, position, updated_at: new Date().toISOString() })
+            .eq('id', entryId);
+        if (error) throw error;
+    };
+
+    const duplicateDayPlan = async (userId: string, sourceDate: string, targetDate: string) => {
+        const weekStart = getWeekStart(sourceDate);
+        const plan = await ensureWeeklyPlan(userId, weekStart);
+        const { data: sourceEntries, error: sourceError } = await supabase
+            .from('weekly_plan_entries')
+            .select('*')
+            .eq('weekly_plan_id', plan.id)
+            .eq('plan_date', sourceDate)
+            .order('position', { ascending: true });
+        if (sourceError) throw sourceError;
+
+        await supabase
+            .from('weekly_plan_entries')
+            .delete()
+            .eq('weekly_plan_id', plan.id)
+            .eq('plan_date', targetDate);
+
+        if (!sourceEntries || sourceEntries.length === 0) return;
+        const rows = sourceEntries.map((entry) => ({
+            weekly_plan_id: plan.id,
+            plan_date: targetDate,
+            meal_type: entry.meal_type,
+            food_id: entry.food_id,
+            recipe_id: entry.recipe_id,
+            gramos: entry.gramos,
+            original_cantidad: entry.original_cantidad,
+            original_unidad: entry.original_unidad,
+            position: entry.position,
+            is_completed: false,
+            day_type: entry.day_type || 'standard'
+        }));
+        const { error } = await supabase.from('weekly_plan_entries').insert(rows);
+        if (error) throw error;
+    };
+
+    const clearDayPlan = async (userId: string, targetDate: string) => {
+        const weekStart = getWeekStart(targetDate);
+        const plan = await ensureWeeklyPlan(userId, weekStart);
+        const { error } = await supabase
+            .from('weekly_plan_entries')
+            .delete()
+            .eq('weekly_plan_id', plan.id)
+            .eq('plan_date', targetDate);
+        if (error) throw error;
+    };
+
+    const repeatWeek = async (userId: string, sourceWeekStart: string, targetWeekStart: string) => {
+        const sourcePlan = await ensureWeeklyPlan(userId, sourceWeekStart);
+        const targetPlan = await ensureWeeklyPlan(userId, targetWeekStart);
+        const { data: sourceEntries, error: sourceError } = await supabase
+            .from('weekly_plan_entries')
+            .select('*')
+            .eq('weekly_plan_id', sourcePlan.id)
+            .order('plan_date', { ascending: true })
+            .order('position', { ascending: true });
+        if (sourceError) throw sourceError;
+
+        await supabase.from('weekly_plan_entries').delete().eq('weekly_plan_id', targetPlan.id);
+
+        const sourceBase = new Date(`${sourceWeekStart}T12:00:00`);
+        const targetBase = new Date(`${targetWeekStart}T12:00:00`);
+        const rows = (sourceEntries || []).map((entry) => {
+            const entryDate = new Date(`${entry.plan_date}T12:00:00`);
+            const diffDays = Math.round((entryDate.getTime() - sourceBase.getTime()) / (1000 * 60 * 60 * 24));
+            const newDate = new Date(targetBase);
+            newDate.setDate(targetBase.getDate() + diffDays);
+            return {
+                weekly_plan_id: targetPlan.id,
+                plan_date: formatDateAsLocalISO(newDate),
+                meal_type: entry.meal_type,
+                food_id: entry.food_id,
+                recipe_id: entry.recipe_id,
+                gramos: entry.gramos,
+                original_cantidad: entry.original_cantidad,
+                original_unidad: entry.original_unidad,
+                position: entry.position,
+                is_completed: false,
+                day_type: entry.day_type || 'standard'
+            };
+        });
+        if (rows.length > 0) {
+            const { error } = await supabase.from('weekly_plan_entries').insert(rows);
+            if (error) throw error;
+        }
+    };
+
+    const regenerateShoppingList = async (userId: string, weekStart: string) => {
+        const plan = await ensureWeeklyPlan(userId, weekStart);
+        const { data: entries, error: entriesError } = await supabase
+            .from('weekly_plan_entries')
+            .select(`
+                *,
+                food_items (nombre),
+                recipes (
+                    porciones,
+                    recipe_ingredients (
+                        gramos,
+                        food_items (nombre)
+                    )
+                )
+            `)
+            .eq('weekly_plan_id', plan.id);
+        if (entriesError) throw entriesError;
+
+        let listId: string;
+        const { data: existingList } = await supabase
+            .from('shopping_lists')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('week_start', weekStart)
+            .maybeSingle();
+
+        if (existingList) {
+            listId = existingList.id;
+            await supabase.from('shopping_list_items').delete().eq('shopping_list_id', listId);
+        } else {
+            const { data: createdList, error: createError } = await supabase
+                .from('shopping_lists')
+                .insert({ user_id: userId, week_start: weekStart })
+                .select()
+                .single();
+            if (createError || !createdList) throw createError;
+            listId = createdList.id;
+        }
+
+        const aggregated = aggregateShoppingItems(entries || []);
+        if (aggregated.length > 0) {
+            const { error } = await supabase.from('shopping_list_items').insert(
+                aggregated.map((item) => ({
+                    shopping_list_id: listId,
+                    ingredient_name: item.ingredient_name,
+                    quantity_grams: item.quantity_grams,
+                    is_checked: false,
+                    source_count: item.source_count
+                }))
+            );
+            if (error) throw error;
+        }
+    };
+
+    const applyDayTemplate = async (userId: string, dayTemplateId: string, targetDate: string) => {
+        const weekStart = getWeekStart(targetDate);
+        const plan = await ensureWeeklyPlan(userId, weekStart);
+        const { data: template, error } = await supabase
+            .from('day_templates')
+            .select(`
+                *,
+                day_template_items (*)
+            `)
+            .eq('id', dayTemplateId)
+            .single();
+        if (error || !template) throw error;
+
+        await supabase
+            .from('weekly_plan_entries')
+            .delete()
+            .eq('weekly_plan_id', plan.id)
+            .eq('plan_date', targetDate);
+
+        const rows = (template.day_template_items || []).map((item: any, index: number) => ({
+            weekly_plan_id: plan.id,
+            plan_date: targetDate,
+            meal_type: item.meal_type,
+            food_id: item.food_id,
+            recipe_id: item.recipe_id,
+            gramos: item.gramos,
+            original_cantidad: item.original_cantidad,
+            original_unidad: item.original_unidad,
+            position: index,
+            is_completed: false,
+            day_type: template.day_type || 'standard'
+        }));
+        if (rows.length > 0) {
+            const { error: insertError } = await supabase.from('weekly_plan_entries').insert(rows);
+            if (insertError) throw insertError;
+        }
+    };
+
+    return {
+        ensureWeeklyPlan,
+        addPlanEntry,
+        movePlanEntry,
+        duplicateDayPlan,
+        clearDayPlan,
+        repeatWeek,
+        regenerateShoppingList,
+        applyDayTemplate
+    };
+}
+
+export function useShoppingList(userId?: string, weekStart?: string) {
+    const [listId, setListId] = useState<string | null>(null);
+    const [items, setItems] = useState<ShoppingListItem[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [source, setSource] = useState<'shopping_list_items' | 'weekly_plan_entries' | 'food_logs'>('food_logs');
+
+    const fetchList = useCallback(async () => {
+        if (!userId || !weekStart) {
+            setItems([]);
+            setListId(null);
+            setLoading(false);
+            return;
+        }
+
+        setLoading(true);
+        const { data: existingList } = await supabase
+            .from('shopping_lists')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('week_start', weekStart)
+            .maybeSingle();
+
+        if (existingList) {
+            const { data } = await supabase
+                .from('shopping_list_items')
+                .select('*')
+                .eq('shopping_list_id', existingList.id)
+                .order('ingredient_name', { ascending: true });
+            setListId(existingList.id);
+            setItems((data || []) as ShoppingListItem[]);
+            setSource('shopping_list_items');
+            setLoading(false);
+            return;
+        }
+
+        const { data: weeklyPlan } = await supabase
+            .from('weekly_plans')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('week_start', weekStart)
+            .maybeSingle();
+
+        if (weeklyPlan) {
+            const { data: entries } = await supabase
+                .from('weekly_plan_entries')
+                .select(`
+                    *,
+                    food_items (nombre),
+                    recipes (
+                        porciones,
+                        recipe_ingredients (
+                            gramos,
+                            food_items (nombre)
+                        )
+                    )
+                `)
+                .eq('weekly_plan_id', weeklyPlan.id);
+
+            const aggregated = aggregateShoppingItems(entries || []);
+            setItems(aggregated);
+            setSource('weekly_plan_entries');
+            setLoading(false);
+            return;
+        }
+
+        const endDate = new Date(`${weekStart}T12:00:00`);
+        endDate.setDate(endDate.getDate() + 6);
+        const { data: foodLogs } = await supabase
+            .from('food_logs')
+            .select(`
+                *,
+                food_items (nombre),
+                recipes (
+                    porciones,
+                    recipe_ingredients (
+                        gramos,
+                        food_items (nombre)
+                    )
+                )
+            `)
+            .eq('user_id', userId)
+            .gte('fecha', weekStart)
+            .lte('fecha', formatDateAsLocalISO(endDate));
+
+        setItems(aggregateShoppingItems(foodLogs || []));
+        setSource('food_logs');
+        setLoading(false);
+    }, [userId, weekStart]);
+
+    useEffect(() => {
+        fetchList();
+    }, [fetchList]);
+
+    const toggleItem = async (itemId: string, nextValue: boolean) => {
+        if (!listId) {
+            setItems((prev) => prev.map((item) => item.id === itemId ? { ...item, is_checked: nextValue } : item));
+            return;
+        }
+        const { error } = await supabase
+            .from('shopping_list_items')
+            .update({ is_checked: nextValue, updated_at: new Date().toISOString() })
+            .eq('id', itemId);
+        if (error) throw error;
+        setItems((prev) => prev.map((item) => item.id === itemId ? { ...item, is_checked: nextValue } : item));
+    };
+
+    return { listId, items, loading, source, refetch: fetchList, toggleItem };
+}
+
+export function useAdherenceAnalytics(userId?: string, rangeDays = 7) {
+    const [summary, setSummary] = useState({
+        adherenceRate: 0,
+        avgCalories: 0,
+        avgProtein: 0,
+        completedDays: 0,
+        plannedDays: 0,
+    });
+    const [loading, setLoading] = useState(true);
+
+    const fetchSummary = useCallback(async () => {
+        if (!userId) {
+            setLoading(false);
+            return;
+        }
+        setLoading(true);
+
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - Math.max(0, rangeDays - 1));
+        const startIso = formatDateAsLocalISO(startDate);
+
+        const { data: logs } = await supabase
+            .from('food_logs')
+            .select(`
+                fecha,
+                consumido,
+                gramos,
+                food_items (proteinas, kcal),
+                recipes (
+                    porciones,
+                    recipe_ingredients (
+                        gramos,
+                        food_items (proteinas, kcal)
+                    )
+                )
+            `)
+            .eq('user_id', userId)
+            .gte('fecha', startIso);
+
+        const daily: Record<string, { kcal: number; protein: number; consumed: boolean }> = {};
+        (logs || []).forEach((log: any) => {
+            if (!daily[log.fecha]) daily[log.fecha] = { kcal: 0, protein: 0, consumed: false };
+            let kcal = 0;
+            let protein = 0;
+            if (log.food_items) {
+                kcal = Number(log.food_items.kcal || 0) * (Number(log.gramos || 0) / 100);
+                protein = Number(log.food_items.proteinas || 0) * (Number(log.gramos || 0) / 100);
+            } else if (log.recipes) {
+                const recipeTotals = (log.recipes.recipe_ingredients || []).reduce((acc: any, ing: any) => ({
+                    kcal: acc.kcal + (Number(ing.food_items?.kcal || 0) * (Number(ing.gramos || 0) / 100)),
+                    protein: acc.protein + (Number(ing.food_items?.proteinas || 0) * (Number(ing.gramos || 0) / 100))
+                }), { kcal: 0, protein: 0 });
+                kcal = (recipeTotals.kcal / (Number(log.recipes.porciones) || 1)) * (Number(log.gramos || 0) / 100);
+                protein = (recipeTotals.protein / (Number(log.recipes.porciones) || 1)) * (Number(log.gramos || 0) / 100);
+            }
+            daily[log.fecha].kcal += kcal;
+            daily[log.fecha].protein += protein;
+            daily[log.fecha].consumed = daily[log.fecha].consumed || !!log.consumido;
+        });
+
+        const values = Object.values(daily);
+        const completedDays = values.filter((item) => item.consumed).length;
+        const plannedDays = values.length;
+        const avgCalories = Math.round(values.reduce((acc, item) => acc + item.kcal, 0) / (plannedDays || 1));
+        const avgProtein = Math.round(values.reduce((acc, item) => acc + item.protein, 0) / (plannedDays || 1));
+
+        setSummary({
+            adherenceRate: plannedDays === 0 ? 0 : Math.round((completedDays / plannedDays) * 100),
+            avgCalories,
+            avgProtein,
+            completedDays,
+            plannedDays,
+        });
+        setLoading(false);
+    }, [userId, rangeDays]);
+
+    useEffect(() => {
+        fetchSummary();
+    }, [fetchSummary]);
+
+    return { summary, loading, refetch: fetchSummary };
+}
+
+function aggregateShoppingItems(entries: any[]): ShoppingListItem[] {
+    const aggregated: Record<string, ShoppingListItem> = {};
+
+    entries.forEach((entry: any, index: number) => {
+        if (entry.food_items?.nombre) {
+            const name = entry.food_items.nombre;
+            if (!aggregated[name]) {
+                aggregated[name] = {
+                    id: `${name}-${index}`,
+                    ingredient_name: name,
+                    quantity_grams: 0,
+                    is_checked: false,
+                    source_count: 0
+                };
+            }
+            aggregated[name].quantity_grams += Number(entry.gramos || 0);
+            aggregated[name].source_count += 1;
+        }
+
+        if (entry.recipes?.recipe_ingredients) {
+            entry.recipes.recipe_ingredients.forEach((ingredient: any) => {
+                const name = ingredient.food_items?.nombre;
+                if (!name) return;
+                if (!aggregated[name]) {
+                    aggregated[name] = {
+                        id: `${name}-${index}`,
+                        ingredient_name: name,
+                        quantity_grams: 0,
+                        is_checked: false,
+                        source_count: 0
+                    };
+                }
+                aggregated[name].quantity_grams += (Number(ingredient.gramos || 0) / (Number(entry.recipes?.porciones) || 1)) * (Number(entry.gramos || 0) / 100);
+                aggregated[name].source_count += 1;
+            });
+        }
+    });
+
+    return Object.values(aggregated).sort((a, b) => a.ingredient_name.localeCompare(b.ingredient_name));
 }

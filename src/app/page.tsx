@@ -7,13 +7,12 @@ import { CalorieArc, MacroBar } from "@/components/dashboard/ProgressCards";
 import { MealCard } from "@/components/dashboard/MealCard";
 import { WaterTracker } from "@/components/dashboard/WaterTracker";
 import { BottomNav } from "@/components/navigation/BottomNav";
-import { AISuggestion } from "@/components/dashboard/AISuggestion";
 import { MonthlyCalendar } from "@/components/dashboard/MonthlyCalendar";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { cn, formatDateAsLocalISO, getTodayLocalDate } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
-import { useProfile, useFoodLogs, useWaterLogs, useFoodLogActions, usePreloader } from "@/hooks/useSupabase";
+import { useProfile, useFoodLogs, useWaterLogs, useFoodLogActions, usePreloader, useTemplates, useAdherenceAnalytics } from "@/hooks/useSupabase";
 import { toPng } from "html-to-image";
 import { Camera } from "lucide-react";
 import { ShareSummary } from "@/components/dashboard/ShareSummary";
@@ -80,6 +79,9 @@ function MealReorderItem({
   selectedDate,
   handleDeleteLog,
   handleEditLog,
+  handleDuplicateLog,
+  handleCopyTomorrow,
+  handleMoveToDate,
   handleToggleConsumed,
   handleToggleAllConsumed,
   handleMoveMeal,
@@ -106,6 +108,9 @@ function MealReorderItem({
         items={mealItems}
         onDelete={handleDeleteLog}
         onEdit={handleEditLog}
+        onDuplicate={handleDuplicateLog}
+        onCopyTomorrow={handleCopyTomorrow}
+        onMoveToDate={handleMoveToDate}
         onToggleConsumed={handleToggleConsumed}
         onToggleAllConsumed={(status: boolean) => handleToggleAllConsumed(meal, status)}
         onMoveUp={index > 0 ? () => handleMoveMeal(meal, 'up') : undefined}
@@ -145,6 +150,8 @@ function DayContent({
   const { logs, loading: logsLoading, refetch, setLogs } = useFoodLogs(userId || undefined, date);
   const { toggleConsumed, toggleAllConsumed, renameMealType, deleteMealLogs, deleteAllLogsForDay } = useFoodLogActions();
   const { glasses, loading: waterLoading, addGlass, removeGlass } = useWaterLogs(userId || undefined, date);
+  const { saveDayTemplate } = useTemplates(userId || undefined);
+  const { summary } = useAdherenceAnalytics(userId || undefined, 7);
 
   const lastHandledTrigger = useRef(shareTrigger);
 
@@ -299,6 +306,69 @@ function DayContent({
   const handleEditLog = (id: string) => {
     rememberDashboardScroll();
     router.push(`/add-food?date=${date}&meal=${encodeURIComponent(logs.find(l => l.id === id)?.comida_tipo || '')}&logId=${id}`);
+  };
+
+  const cloneLogToDate = async (id: string, targetDate: string, removeOriginal = false) => {
+    if (!userId) return;
+    const log = logs.find((entry: any) => entry.id === id);
+    if (!log) return;
+
+    const payload = {
+      user_id: userId,
+      food_id: log.food_id || null,
+      recipe_id: log.recipe_id || null,
+      comida_tipo: log.comida_tipo,
+      gramos: log.gramos,
+      fecha: targetDate,
+      consumido: false,
+      original_cantidad: log.original_cantidad ?? null,
+      original_unidad: log.original_unidad ?? null
+    };
+
+    let { error } = await supabase.from("food_logs").insert(payload);
+    if (error?.message?.includes("original_cantidad")) {
+      const { error: fallbackError } = await supabase.from("food_logs").insert({
+        user_id: payload.user_id,
+        food_id: payload.food_id,
+        recipe_id: payload.recipe_id,
+        comida_tipo: payload.comida_tipo,
+        gramos: payload.gramos,
+        fecha: payload.fecha,
+        consumido: payload.consumido
+      });
+      error = fallbackError;
+    }
+    if (error) {
+      alert("No se pudo copiar el alimento.");
+      return;
+    }
+
+    if (removeOriginal) {
+      const { error: deleteError } = await supabase.from("food_logs").delete().eq("id", id);
+      if (deleteError) {
+        alert("Se copió, pero no se pudo mover completamente.");
+      }
+    }
+
+    if (targetDate === date || removeOriginal) {
+      refetch({ force: true });
+    }
+  };
+
+  const handleDuplicateLog = async (id: string) => {
+    await cloneLogToDate(id, date, false);
+  };
+
+  const handleCopyTomorrow = async (id: string) => {
+    const tomorrow = addDaysToDateString(date, 1);
+    await cloneLogToDate(id, tomorrow, false);
+    alert("Alimento copiado a mañana.");
+  };
+
+  const handleMoveToDate = async (id: string) => {
+    const targetDate = prompt("Mover alimento a fecha (YYYY-MM-DD):", date);
+    if (!targetDate || targetDate === date) return;
+    await cloneLogToDate(id, targetDate, true);
   };
 
   const handleDeleteAllLogs = async () => {
@@ -544,6 +614,30 @@ function DayContent({
         </div>
       </section>
 
+      <section className="px-6 py-1">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="glass-card-subtle p-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500 mb-1">Adherencia 7 días</p>
+            <p className="text-2xl font-black text-fuchsia-300">{summary.adherenceRate}%</p>
+            <p className="text-[11px] text-zinc-500">{summary.completedDays}/{summary.plannedDays} días marcados</p>
+          </div>
+          <button
+            onClick={async () => {
+              if (!userId || visibleLogs.length === 0) return;
+              const templateName = prompt("Nombre de la plantilla del día:", `Día ${date}`);
+              if (!templateName) return;
+              await saveDayTemplate(templateName.trim(), profile?.default_day_type || "standard", visibleLogs);
+              alert("Plantilla del día guardada.");
+            }}
+            className="glass-card-subtle p-4 text-left active:scale-[0.98] transition-transform"
+          >
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500 mb-1">Plantillas</p>
+            <p className="text-lg font-black text-white">Guardar día actual</p>
+            <p className="text-[11px] text-zinc-500">Reutiliza este día en semana o calendario</p>
+          </button>
+        </div>
+      </section>
+
       <section className="px-6 py-2">
         {logsLoading && (
           <div className="mb-3 text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">
@@ -564,6 +658,9 @@ function DayContent({
                 selectedDate={date}
                 handleDeleteLog={handleDeleteLog}
                 handleEditLog={handleEditLog}
+                handleDuplicateLog={handleDuplicateLog}
+                handleCopyTomorrow={handleCopyTomorrow}
+                handleMoveToDate={handleMoveToDate}
                 handleToggleConsumed={handleToggleConsumed}
                 handleToggleAllConsumed={handleToggleAllConsumed}
                 handleMoveMeal={handleMoveMeal}
@@ -608,10 +705,6 @@ function DayContent({
           </div>
         </div>
       </section>
-
-      {userId && (
-        <AISuggestion deficit={deficit} macros={{ p: 20, c: 20, g: 5 }} userId={userId} date={date} onPlanApplied={() => refetch({ force: true })} />
-      )}
 
       <div className="fixed -left-[9999px] top-0 pointer-events-none overflow-hidden h-0">
         <div id={`share-summary-card-${date}`}>
