@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 interface CalorieArcProps {
@@ -50,7 +49,7 @@ export function CalorieArc({ current, planned, target }: CalorieArcProps) {
                     strokeDasharray="157"
                     style={{
                         strokeDashoffset: 157 - (157 * plannedPercentage) / 100,
-                        transition: "stroke-dashoffset 2s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                        transition: "stroke-dashoffset 240ms ease-out",
                     }}
                 />
                 {/* Consumed Progress Arc (Main) */}
@@ -64,7 +63,7 @@ export function CalorieArc({ current, planned, target }: CalorieArcProps) {
                     filter="url(#softGlow)"
                     style={{
                         strokeDashoffset: 157 - (157 * consumedPercentage) / 100,
-                        transition: "stroke-dashoffset 1.5s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                        transition: "stroke-dashoffset 220ms ease-out",
                     }}
                 />
             </svg>
@@ -72,7 +71,7 @@ export function CalorieArc({ current, planned, target }: CalorieArcProps) {
                 <div className="flex flex-col items-center justify-center">
                     <div className="flex items-baseline gap-1.5 translate-y-1">
                         <span className={cn(
-                            "font-black tracking-tighter bg-linear-to-r from-fuchsia-400 to-blue-400 bg-clip-text text-transparent leading-none animate-in fade-in zoom-in duration-1000",
+                            "font-black tracking-tighter bg-linear-to-r from-fuchsia-400 to-blue-400 bg-clip-text text-transparent leading-none",
                             current > 9999 ? "text-3xl" : "text-5xl"
                         )}>
                             {new Intl.NumberFormat().format(current)}
@@ -128,7 +127,7 @@ export function MacroBar({ label, current, planned, target }: MacroBarProps) {
             </div>
             <div className="h-2.5 w-full bg-white/5 rounded-full overflow-hidden border border-fuchsia-500/10">
                 <div
-                    className={cn("h-full rounded-full transition-all duration-1000", gradientClass)}
+                    className={cn("h-full rounded-full transition-all duration-200", gradientClass)}
                     style={{ width: `${percentage}%` }}
                 />
             </div>

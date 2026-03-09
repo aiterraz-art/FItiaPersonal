@@ -545,12 +545,13 @@ function DayContent({
       </section>
 
       <section className="px-6 py-2">
-        {logsLoading ? (
-          <div className="space-y-4 mb-6">
-            <div className="skeleton h-40 rounded-3xl" />
-            <div className="skeleton h-32 rounded-3xl" />
+        {logsLoading && (
+          <div className="mb-3 text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">
+            Cargando día...
           </div>
-        ) : (
+        )}
+
+        <div className={cn("transition-opacity duration-150", logsLoading ? "opacity-70 pointer-events-none" : "opacity-100")}>
           <Reorder.Group axis="y" values={orderedMealNames} onReorder={handleReorderMeals} className="space-y-0">
             {orderedMealNames.map((meal, index) => (
               <MealReorderItem
@@ -571,40 +572,40 @@ function DayContent({
               />
             ))}
           </Reorder.Group>
-        )}
 
-        <button
-          onClick={() => {
-            const name = prompt("Nombre de la nueva comida:");
-            if (name && name.trim()) {
-              rememberDashboardScroll();
-              router.push(`/add-food?date=${date}&meal=${encodeURIComponent(name.trim())}`);
-            }
-          }}
-          className="w-full mb-6 py-4 glass-card-subtle flex items-center justify-center gap-3 active:scale-[0.98] transition-all group border-dashed border-fuchsia-500/20"
-        >
-          <Plus className="w-5 h-5 text-fuchsia-400 group-hover:rotate-90 transition-transform" />
-          <span className="text-sm font-bold text-zinc-400 group-hover:text-fuchsia-300 transition-colors">Agregar otra comida</span>
-        </button>
-
-        {!logsLoading && visibleLogs.length === 0 && (
-          <button onClick={() => setIsCopyCalendarOpen(true)} disabled={copying} className="w-full mb-6 py-5 glass-card flex items-center justify-center gap-3 active:scale-[0.98] transition-all group">
-            {copied ? (
-              <span className="text-sm font-bold text-fuchsia-400">¡Dieta copiada!</span>
-            ) : (
-              <span className="text-sm font-bold bg-linear-to-r from-violet-400 to-blue-400 bg-clip-text text-transparent">Copiar dieta de otro día</span>
-            )}
+          <button
+            onClick={() => {
+              const name = prompt("Nombre de la nueva comida:");
+              if (name && name.trim()) {
+                rememberDashboardScroll();
+                router.push(`/add-food?date=${date}&meal=${encodeURIComponent(name.trim())}`);
+              }
+            }}
+            className="w-full mb-6 py-4 glass-card-subtle flex items-center justify-center gap-3 active:scale-[0.98] transition-all group border-dashed border-fuchsia-500/20"
+          >
+            <Plus className="w-5 h-5 text-fuchsia-400 group-hover:rotate-90 transition-transform" />
+            <span className="text-sm font-bold text-zinc-400 group-hover:text-fuchsia-300 transition-colors">Agregar otra comida</span>
           </button>
-        )}
 
-        {!logsLoading && visibleLogs.length > 0 && (
-          <button onClick={handleDeleteAllLogs} disabled={copying} className="w-full mb-6 py-4 glass-card-subtle flex items-center justify-center gap-3 active:scale-[0.98] transition-all group border-red-500/20 hover:border-red-500/40">
-            <span className="text-sm font-bold text-red-400/80 group-hover:text-red-400 transition-colors">Borrar todo el día</span>
-          </button>
-        )}
+          {visibleLogs.length === 0 && (
+            <button onClick={() => setIsCopyCalendarOpen(true)} disabled={copying} className="w-full mb-6 py-5 glass-card flex items-center justify-center gap-3 active:scale-[0.98] transition-all group">
+              {copied ? (
+                <span className="text-sm font-bold text-fuchsia-400">¡Dieta copiada!</span>
+              ) : (
+                <span className="text-sm font-bold bg-linear-to-r from-violet-400 to-blue-400 bg-clip-text text-transparent">Copiar dieta de otro día</span>
+              )}
+            </button>
+          )}
 
-        <div className={cn("transition-opacity duration-200", waterLoading ? "opacity-60" : "opacity-100")}>
-          <WaterTracker glasses={glasses} target={3.3} onAddGlass={addGlass} onRemoveGlass={removeGlass} />
+          {visibleLogs.length > 0 && (
+            <button onClick={handleDeleteAllLogs} disabled={copying} className="w-full mb-6 py-4 glass-card-subtle flex items-center justify-center gap-3 active:scale-[0.98] transition-all group border-red-500/20 hover:border-red-500/40">
+              <span className="text-sm font-bold text-red-400/80 group-hover:text-red-400 transition-colors">Borrar todo el día</span>
+            </button>
+          )}
+
+          <div className={cn("transition-opacity duration-150", waterLoading ? "opacity-70" : "opacity-100")}>
+            <WaterTracker glasses={glasses} target={3.3} onAddGlass={addGlass} onRemoveGlass={removeGlass} />
+          </div>
         </div>
       </section>
 

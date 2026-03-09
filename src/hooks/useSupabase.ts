@@ -338,7 +338,6 @@ export function useFoodLogs(userId?: string, date?: string) {
             return;
         }
 
-        setLogs([]);
         setLoading(true);
         fetchLogs();
     }, [cacheKey, date, fetchLogs]);
@@ -510,8 +509,6 @@ export function useWaterLogs(userId?: string, date?: string) {
             return;
         }
 
-        setGlasses(0);
-        setWaterLogIds([]);
         setLoading(true);
         fetchWater();
     }, [cacheKey, date, fetchWater]);

@@ -1,20 +1,7 @@
-import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
+import { motion, useMotionValue, useTransform } from "framer-motion";
 import { CheckCircle2, Plus, Trash2, ArrowUp, ArrowDown, GripVertical } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-
-// Si la unidad es "2 galletas" y la cantidad es 3, muestra "6 galletas"
-function formatQuantityDisplay(cantidad: number | null | undefined, unidad: string | null | undefined, gramos: number): string {
-    if (cantidad == null || !unidad || unidad === 'gramos') return `${gramos}g`;
-    const match = unidad.match(/^(\d+\.?\d*)\s+(.+)$/);
-    if (match) {
-        const unitMultiplier = parseFloat(match[1]);
-        const unitName = match[2];
-        const total = Math.round(cantidad * unitMultiplier);
-        return `${total} ${unitName}`;
-    }
-    return `${cantidad} ${unidad}`;
-}
 
 interface FoodItem {
     id: string;
@@ -76,22 +63,19 @@ function FoodLogItem({
             )}
 
             <motion.div
-                layout
                 style={{ x }}
                 initial={false}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
                 drag="x"
                 dragConstraints={{ left: 0, right: 0 }}
-                dragElastic={0.8}
-                dragTransition={{ bounceStiffness: 600, bounceDamping: 20 }}
+                dragElastic={0.2}
+                dragTransition={{ bounceStiffness: 420, bounceDamping: 32 }}
                 onDragEnd={(_, info) => {
                     // Logic for deletion threshold
                     if (info.offset.x < -100) {
                         onDelete?.(item.id);
                     }
                 }}
-                className="relative bg-[#050510] flex justify-between items-center group px-3 py-2 rounded-2xl border border-transparent active:border-fuchsia-500/20 transition-all cursor-grab active:cursor-grabbing"
+                className="relative bg-[#050510] flex justify-between items-center group px-3 py-2 rounded-2xl border border-transparent active:border-fuchsia-500/20 cursor-grab active:cursor-grabbing"
             >
                 <div
                     className={cn(
@@ -101,7 +85,7 @@ function FoodLogItem({
                     onClick={() => onEdit?.(item.id)}
                 >
                     <div className={cn(
-                        "w-9 h-9 rounded-xl border flex items-center justify-center text-base shrink-0 transition-all duration-500",
+                        "w-9 h-9 rounded-xl border flex items-center justify-center text-base shrink-0 transition-colors duration-150",
                         item.consumido
                             ? "bg-zinc-800/50 border-white/5 opacity-40 grayscale"
                             : "bg-fuchsia-500/10 border-fuchsia-500/15"
@@ -110,29 +94,22 @@ function FoodLogItem({
                     </div>
                     <div className="flex-1 min-w-0 relative">
                         <p className={cn(
-                            "text-sm font-bold tracking-tight wrap-break-word whitespace-normal transition-all duration-500 line-clamp-2",
+                            "text-sm font-bold tracking-tight wrap-break-word whitespace-normal transition-colors duration-150 line-clamp-2",
                             item.consumido ? "text-zinc-500" : "text-white"
                         )}
                             title={item.nombre}
                         >
                             {item.nombre}
                         </p>
-                        <AnimatePresence>
-                            {item.consumido && (
-                                <motion.div
-                                    initial={{ width: 0 }}
-                                    animate={{ width: "100%" }}
-                                    exit={{ width: 0 }}
-                                    className="absolute top-1/2 left-0 h-[2px] bg-fuchsia-500/40 -translate-y-1/2"
-                                />
-                            )}
-                        </AnimatePresence>
+                        {item.consumido && (
+                            <div className="absolute top-1/2 left-0 h-[2px] w-full bg-fuchsia-500/40 -translate-y-1/2" />
+                        )}
                         <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">{item.estado}</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-3 ml-2 shrink-0">
                     <div className={cn(
-                        "text-right transition-all duration-500 min-w-[50px]",
+                        "text-right transition-opacity duration-150 min-w-[50px]",
                         item.consumido ? "opacity-40" : "opacity-100"
                     )}>
                         <p className="text-sm font-black">
@@ -154,15 +131,14 @@ function FoodLogItem({
                         <p className="text-[10px] text-zinc-500 font-bold">{item.kcal} kcal</p>
                     </div>
                     <motion.div
-                        whileTap={{ scale: 0.8 }}
-                        whileHover={{ scale: 1.1 }}
-                        transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                        whileTap={{ scale: 0.92 }}
+                        transition={{ duration: 0.08 }}
                         onClick={(e) => {
                             e.stopPropagation();
                             onToggleConsumed?.(item.id, item.consumido);
                         }}
                         className={cn(
-                            "w-8 h-8 rounded-full border flex items-center justify-center shrink-0 transition-all duration-500 cursor-pointer",
+                            "w-8 h-8 rounded-full border flex items-center justify-center shrink-0 transition-colors duration-150 cursor-pointer",
                             item.consumido
                                 ? "bg-fuchsia-500 border-fuchsia-400 shadow-[0_0_15px_rgba(217,70,239,0.6)]"
                                 : "bg-white/5 border-white/10 hover:border-fuchsia-500/40"
@@ -171,7 +147,7 @@ function FoodLogItem({
                         <motion.div
                             initial={false}
                             animate={{ scale: item.consumido ? 1 : 0 }}
-                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                            transition={{ duration: 0.12 }}
                         >
                             <CheckCircle2 className="w-5 h-5 text-white" />
                         </motion.div>
@@ -293,19 +269,17 @@ export function MealCard({
             </div>
 
             <div className="space-y-4 mb-6">
-                <AnimatePresence mode="popLayout" initial={false}>
-                    {items.length > 0 ? items.map((item) => (
-                        <FoodLogItem
-                            key={item.id}
-                            item={item}
-                            onDelete={onDelete}
-                            onEdit={onEdit}
-                            onToggleConsumed={onToggleConsumed}
-                        />
-                    )) : (
-                        <p className="text-xs text-zinc-600 font-medium italic py-2">Sin alimentos registrados</p>
-                    )}
-                </AnimatePresence>
+                {items.length > 0 ? items.map((item) => (
+                    <FoodLogItem
+                        key={item.id}
+                        item={item}
+                        onDelete={onDelete}
+                        onEdit={onEdit}
+                        onToggleConsumed={onToggleConsumed}
+                    />
+                )) : (
+                    <p className="text-xs text-zinc-600 font-medium italic py-2">Sin alimentos registrados</p>
+                )}
             </div>
 
             <button
