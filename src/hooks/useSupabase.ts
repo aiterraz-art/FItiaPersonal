@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { formatDateAsLocalISO, getTodayLocalDate } from '@/lib/utils';
 
@@ -162,7 +162,7 @@ export function useProfile(userId?: string) {
         if (!userId) return;
 
         async function fetchProfile() {
-            const { data, error } = await supabase
+            const { data } = await supabase
                 .from('profiles')
                 .select('*')
                 .eq('id', userId)
@@ -271,6 +271,12 @@ export function useFoodLogs(userId?: string, date?: string) {
     const hasCachedLogs = Boolean(date && hasCacheKey(globalCache.foodLogs, cacheKey));
     const [logs, setLogs] = useState<any[]>(hasCachedLogs ? dedupeFoodLogsById(globalCache.foodLogs[cacheKey]) : []);
     const [loading, setLoading] = useState(Boolean(date && !hasCachedLogs));
+    const requestSeqRef = useRef(0);
+    const activeKeyRef = useRef(cacheKey);
+
+    useEffect(() => {
+        activeKeyRef.current = cacheKey;
+    }, [cacheKey]);
 
     const fetchLogs = useCallback(async ({ force = false, background = false } = {}) => {
         if (!userId || !date) return;
@@ -286,6 +292,7 @@ export function useFoodLogs(userId?: string, date?: string) {
             return;
         }
 
+        const requestId = ++requestSeqRef.current;
         if (!background) setLoading(true);
         const { data, error } = await supabase
             .from('food_logs')
@@ -305,6 +312,9 @@ export function useFoodLogs(userId?: string, date?: string) {
 
         if (error) {
             console.error("Error fetching food logs:", error);
+        }
+        if (requestId !== requestSeqRef.current || activeKeyRef.current !== cacheKey) {
+            return;
         }
         const nextData = dedupeFoodLogsById(data || []);
         globalCache.foodLogs[cacheKey] = nextData;
@@ -431,6 +441,12 @@ export function useWaterLogs(userId?: string, date?: string) {
     const [glasses, setGlasses] = useState(hasCachedWater ? dedupeIds(globalCache.waterLogIds[cacheKey]).length : 0);
     const [waterLogIds, setWaterLogIds] = useState<string[]>(hasCachedWater ? dedupeIds(globalCache.waterLogIds[cacheKey]) : []);
     const [loading, setLoading] = useState(Boolean(date && !hasCachedWater));
+    const requestSeqRef = useRef(0);
+    const activeKeyRef = useRef(cacheKey);
+
+    useEffect(() => {
+        activeKeyRef.current = cacheKey;
+    }, [cacheKey]);
 
     const fetchWater = useCallback(async ({ force = false, background = false } = {}) => {
         if (!userId || !date) return;
@@ -448,6 +464,7 @@ export function useWaterLogs(userId?: string, date?: string) {
             return;
         }
 
+        const requestId = ++requestSeqRef.current;
         if (!background) setLoading(true);
         const { data, error } = await supabase
             .from('water_logs')
@@ -458,6 +475,9 @@ export function useWaterLogs(userId?: string, date?: string) {
 
         if (error) {
             console.error("Error fetching water logs:", error);
+        }
+        if (requestId !== requestSeqRef.current || activeKeyRef.current !== cacheKey) {
+            return;
         }
 
         const rows = data || [];
@@ -610,7 +630,7 @@ export function useRecipe(recipeId?: string) {
 
         async function fetchRecipe() {
             setLoading(true);
-            const { data, error } = await supabase
+            const { data } = await supabase
                 .from('recipes')
                 .select(`
                     *,

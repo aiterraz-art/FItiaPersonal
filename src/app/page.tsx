@@ -1,14 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { Copy, Check, Plus } from "lucide-react";
-import { motion, AnimatePresence, Reorder, useAnimationControls, useDragControls } from "framer-motion";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { Plus } from "lucide-react";
+import { motion, Reorder, useAnimationControls, useDragControls, useReducedMotion } from "framer-motion";
 import { CalorieArc, MacroBar } from "@/components/dashboard/ProgressCards";
 import { MealCard } from "@/components/dashboard/MealCard";
 import { WaterTracker } from "@/components/dashboard/WaterTracker";
 import { BottomNav } from "@/components/navigation/BottomNav";
 import { AISuggestion } from "@/components/dashboard/AISuggestion";
-import { EditLogModal } from "@/components/dashboard/EditLogModal";
 import { MonthlyCalendar } from "@/components/dashboard/MonthlyCalendar";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
@@ -16,7 +15,7 @@ import { cn, formatDateAsLocalISO, getTodayLocalDate } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useProfile, useFoodLogs, useWaterLogs, useFoodLogActions, usePreloader } from "@/hooks/useSupabase";
 import { toPng } from "html-to-image";
-import { Camera, Share2 } from "lucide-react";
+import { Camera } from "lucide-react";
 import { ShareSummary } from "@/components/dashboard/ShareSummary";
 
 // Helper outside component
@@ -76,7 +75,8 @@ function MealReorderItem({
   meal,
   index,
   orderedMealNames,
-  logs,
+  mealItems,
+  mealSummary,
   selectedDate,
   handleDeleteLog,
   handleEditLog,
@@ -87,15 +87,7 @@ function MealReorderItem({
   handleRemoveMeal
 }: any) {
   const dragControls = useDragControls();
-  const mealLogsForSummary = logs.filter((l: any) => l.comida_tipo === meal && l.original_unidad !== 'HIDDEN_MEAL');
-  const mealMacros = mealLogsForSummary.reduce((acc: any, log: any) => {
-    const m = calculateLogMacros(log);
-    return {
-      p: acc.p + Math.round(m.p),
-      c: acc.c + Math.round(m.c),
-      g: acc.g + Math.round(m.g),
-    };
-  }, { p: 0, c: 0, g: 0 });
+  const mealMacros = mealSummary || { p: 0, c: 0, g: 0, kcal: 0 };
 
   return (
     <Reorder.Item
@@ -109,18 +101,9 @@ function MealReorderItem({
       <MealCard
         title={meal}
         date={selectedDate}
-        totalKcal={mealLogsForSummary.reduce((acc: number, log: any) => acc + Math.round(calculateLogMacros(log).kcal), 0)}
+        totalKcal={mealMacros.kcal}
         macros={mealMacros}
-        items={mealLogsForSummary.map((l: any) => ({
-          id: l.id,
-          nombre: l.food_items?.nombre || l.recipes?.nombre || "Alimento",
-          gramos: l.gramos,
-          kcal: Math.round(calculateLogMacros(l).kcal),
-          estado: l.estado || "Crudo",
-          consumido: l.consumido,
-          original_cantidad: l.original_cantidad ?? null,
-          original_unidad: l.original_unidad ?? null
-        }))}
+        items={mealItems}
         onDelete={handleDeleteLog}
         onEdit={handleEditLog}
         onToggleConsumed={handleToggleConsumed}
@@ -143,8 +126,7 @@ function DayContent({
   updateStreak,
   updateMealOrder,
   refetchProfile,
-  shareTrigger,
-  onDateChange
+  shareTrigger
 }: {
   userId: string | null;
   date: string;
@@ -153,7 +135,6 @@ function DayContent({
   updateMealOrder: (order: string[]) => Promise<void>;
   refetchProfile: () => Promise<void>;
   shareTrigger: number;
-  onDateChange: (d: string) => void;
 }) {
   const router = useRouter();
   const [copying, setCopying] = useState(false);
@@ -161,33 +142,102 @@ function DayContent({
   const [isCopyCalendarOpen, setIsCopyCalendarOpen] = useState(false);
 
 
-  const { logs, refetch, setLogs } = useFoodLogs(userId || undefined, date);
+  const { logs, loading: logsLoading, refetch, setLogs } = useFoodLogs(userId || undefined, date);
   const { toggleConsumed, toggleAllConsumed, renameMealType, deleteMealLogs, deleteAllLogsForDay } = useFoodLogActions();
-  const { glasses, addGlass, removeGlass } = useWaterLogs(userId || undefined, date);
+  const { glasses, loading: waterLoading, addGlass, removeGlass } = useWaterLogs(userId || undefined, date);
 
   const lastHandledTrigger = useRef(shareTrigger);
 
+  const {
+    hiddenMeals,
+    mealsWithLogs,
+    mealItemsByName,
+    mealSummaryByName,
+    totalsPlanned,
+    totalsConsumed,
+    visibleLogs
+  } = useMemo(() => {
+    const hiddenMealSet = new Set<string>();
+    const mealsWithLogsSet = new Set<string>();
+    const mealItems: Record<string, any[]> = {};
+    const mealSummary: Record<string, { kcal: number; p: number; c: number; g: number }> = {};
+    const planned = { kcal: 0, p: 0, c: 0, g: 0 };
+    const consumed = { kcal: 0, p: 0, c: 0, g: 0 };
+    const nextVisibleLogs: any[] = [];
+
+    logs.forEach((log: any) => {
+      if (log.original_unidad === "HIDDEN_MEAL") {
+        hiddenMealSet.add(log.comida_tipo);
+        return;
+      }
+
+      nextVisibleLogs.push(log);
+      mealsWithLogsSet.add(log.comida_tipo);
+      const macro = calculateLogMacros(log);
+
+      planned.kcal += macro.kcal;
+      planned.p += macro.p;
+      planned.c += macro.c;
+      planned.g += macro.g;
+
+      if (log.consumido) {
+        consumed.kcal += macro.kcal;
+        consumed.p += macro.p;
+        consumed.c += macro.c;
+        consumed.g += macro.g;
+      }
+
+      if (!mealSummary[log.comida_tipo]) {
+        mealSummary[log.comida_tipo] = { kcal: 0, p: 0, c: 0, g: 0 };
+      }
+      mealSummary[log.comida_tipo].kcal += Math.round(macro.kcal);
+      mealSummary[log.comida_tipo].p += Math.round(macro.p);
+      mealSummary[log.comida_tipo].c += Math.round(macro.c);
+      mealSummary[log.comida_tipo].g += Math.round(macro.g);
+
+      if (!mealItems[log.comida_tipo]) {
+        mealItems[log.comida_tipo] = [];
+      }
+      mealItems[log.comida_tipo].push({
+        id: log.id,
+        nombre: macro.nombre,
+        gramos: log.gramos,
+        kcal: Math.round(macro.kcal),
+        estado: macro.info,
+        consumido: !!log.consumido,
+        original_cantidad: log.original_cantidad ?? null,
+        original_unidad: log.original_unidad ?? null
+      });
+    });
+
+    return {
+      hiddenMeals: Array.from(hiddenMealSet),
+      mealsWithLogs: Array.from(mealsWithLogsSet),
+      mealItemsByName: mealItems,
+      mealSummaryByName: mealSummary,
+      totalsPlanned: planned,
+      totalsConsumed: consumed,
+      visibleLogs: nextVisibleLogs
+    };
+  }, [logs]);
+
   useEffect(() => {
-    if (logs.length > 0 && date === getTodayLocalDate()) {
+    if (visibleLogs.length > 0 && date === getTodayLocalDate()) {
       updateStreak();
     }
-  }, [logs.length, date, updateStreak]);
+  }, [visibleLogs.length, date, updateStreak]);
 
   const [orderedMealNames, setOrderedMealNames] = useState<string[]>([]);
 
-  // Stable initialization of orderedMealNames
   useEffect(() => {
-    if (!profile || !logs) return;
+    if (!profile) return;
 
     const defaultOrder = ["Desayuno", "Snack 1", "Almuerzo", "Merienda", "Snack 2", "Cena"];
     const userOrder = profile.orden_comidas || defaultOrder;
-
-    const hiddenMeals = new Set(logs.filter((l: any) => l.original_unidad === 'HIDDEN_MEAL').map((l: any) => l.comida_tipo));
-    const visibleLogs = logs.filter((l: any) => l.original_unidad !== 'HIDDEN_MEAL');
-    const mealsWithLogs = Array.from(new Set(visibleLogs.map((l: any) => l.comida_tipo)));
+    const hiddenMealsSet = new Set(hiddenMeals);
 
     const targetMeals = Array.from(new Set([...userOrder, ...mealsWithLogs]))
-      .filter((m: string) => !hiddenMeals.has(m))
+      .filter((m: string) => !hiddenMealsSet.has(m))
       .sort((a, b) => {
         const indexA = userOrder.indexOf(a);
         const indexB = userOrder.indexOf(b);
@@ -198,62 +248,22 @@ function DayContent({
       })
       .filter((m: string) => userOrder.includes(m) || mealsWithLogs.includes(m));
 
-    if (orderedMealNames.length === 0) {
-      setOrderedMealNames(targetMeals);
-    } else {
+    setOrderedMealNames((prev) => {
+      if (prev.length === 0) return targetMeals;
       const hasChanges =
-        targetMeals.some(m => !orderedMealNames.includes(m)) ||
-        orderedMealNames.some(m => !targetMeals.includes(m));
+        targetMeals.some((m) => !prev.includes(m)) ||
+        prev.some((m) => !targetMeals.includes(m));
 
-      if (hasChanges) {
-        const newOrder = [
-          ...orderedMealNames.filter(m => targetMeals.includes(m)),
-          ...targetMeals.filter(m => !orderedMealNames.includes(m))
-        ];
-        setOrderedMealNames(newOrder);
-      }
-    }
-  }, [profile, logs]);
-
-  const totalsPlanned = logs.reduce((acc, log) => {
-    if (log.original_unidad === 'HIDDEN_MEAL') return acc;
-    const m = calculateLogMacros(log);
-    return {
-      kcal: acc.kcal + m.kcal,
-      p: acc.p + m.p,
-      c: acc.c + m.c,
-      g: acc.g + m.g,
-    };
-  }, { kcal: 0, p: 0, c: 0, g: 0 });
-
-  const totalsConsumed = logs.reduce((acc, log) => {
-    if (!log.consumido || log.original_unidad === 'HIDDEN_MEAL') return acc;
-    const m = calculateLogMacros(log);
-    return {
-      kcal: acc.kcal + m.kcal,
-      p: acc.p + m.p,
-      c: acc.c + m.c,
-      g: acc.g + m.g,
-    };
-  }, { kcal: 0, p: 0, c: 0, g: 0 });
+      if (!hasChanges) return prev;
+      return [
+        ...prev.filter((m) => targetMeals.includes(m)),
+        ...targetMeals.filter((m) => !prev.includes(m))
+      ];
+    });
+  }, [profile, hiddenMeals, mealsWithLogs]);
 
   const targetKcal = profile?.meta_kcal || 2000;
   const deficit = Math.max(0, targetKcal - totalsConsumed.kcal);
-
-  const filterLogsByMeal = (type: string) =>
-    logs.filter(l => l.comida_tipo === type && l.original_unidad !== 'HIDDEN_MEAL').map(l => {
-      const m = calculateLogMacros(l);
-      return {
-        id: l.id,
-        nombre: m.nombre,
-        gramos: l.gramos,
-        kcal: Math.round(m.kcal),
-        estado: m.info,
-        consumido: !!l.consumido,
-        original_cantidad: l.original_cantidad ?? null,
-        original_unidad: l.original_unidad ?? null
-      };
-    });
 
   const rememberDashboardScroll = () => {
     if (typeof window === "undefined") return;
@@ -299,7 +309,7 @@ function DayContent({
     try {
       await deleteAllLogsForDay(userId, date);
       refetch();
-    } catch (e) {
+    } catch {
       alert("Error al borrar los registros.");
     } finally {
       setCopying(false);
@@ -311,7 +321,7 @@ function DayContent({
     setLogs((prev: any[]) => prev.map(l => l.id === id ? { ...l, consumido: !currentStatus } : l));
     try {
       await toggleConsumed(id, currentStatus);
-    } catch (e) {
+    } catch {
       setLogs((prev: any[]) => prev.map(l => l.id === id ? { ...l, consumido: currentStatus } : l));
       alert("Error al actualizar el estado.");
     }
@@ -322,7 +332,7 @@ function DayContent({
     setLogs((prev: any[]) => prev.map(l => l.comida_tipo === mealType ? { ...l, consumido: status } : l));
     try {
       await toggleAllConsumed(userId, date, mealType, status);
-    } catch (e) {
+    } catch {
       refetch();
       alert("Error al actualizar la comida completa.");
     }
@@ -382,7 +392,15 @@ function DayContent({
       let { error: insertError } = await supabase.from("food_logs").insert(newLogs);
 
       if (insertError?.message?.includes("original_cantidad")) {
-        const fallbackLogs = newLogs.map(({ original_cantidad, original_unidad, ...rest }) => rest);
+        const fallbackLogs = newLogs.map((log) => ({
+          user_id: log.user_id,
+          food_id: log.food_id,
+          recipe_id: log.recipe_id,
+          comida_tipo: log.comida_tipo,
+          gramos: log.gramos,
+          consumido: log.consumido,
+          fecha: log.fecha
+        }));
         const { error: fallbackInsertError } = await supabase.from("food_logs").insert(fallbackLogs);
         insertError = fallbackInsertError;
       }
@@ -401,7 +419,7 @@ function DayContent({
     }
   };
 
-  const handleShareDay = async () => {
+  const handleShareDay = useCallback(async () => {
     const el = document.getElementById(`share-summary-card-${date}`);
     if (!el) return;
     try {
@@ -426,14 +444,14 @@ function DayContent({
       if (err.name === 'AbortError') return;
       alert("No se pudo generar la imagen.");
     }
-  };
+  }, [date]);
 
   useEffect(() => {
     if (shareTrigger > lastHandledTrigger.current) {
       lastHandledTrigger.current = shareTrigger;
       handleShareDay();
     }
-  }, [shareTrigger]);
+  }, [shareTrigger, handleShareDay]);
 
   const handleMoveMeal = async (meal: string, direction: 'up' | 'down') => {
     const currentScrollY = typeof window !== "undefined" ? window.scrollY : 0;
@@ -476,7 +494,7 @@ function DayContent({
       });
 
       refetch();
-    } catch (err) {
+    } catch {
       setOrderedMealNames(originalUIOrder);
       alert(`No se pudo eliminar la comida.`);
     } finally {
@@ -498,7 +516,7 @@ function DayContent({
       await updateMealOrder(nextOrder);
       await refetchProfile();
       refetch();
-    } catch (err) {
+    } catch {
       setOrderedMealNames(originalUIOrder);
       alert(`No se pudo renombrar la comida.`);
     } finally {
@@ -527,38 +545,33 @@ function DayContent({
       </section>
 
       <section className="px-6 py-2">
-        <Reorder.Group axis="y" values={orderedMealNames} onReorder={handleReorderMeals} className="space-y-0">
-          <AnimatePresence mode="popLayout">
+        {logsLoading ? (
+          <div className="space-y-4 mb-6">
+            <div className="skeleton h-40 rounded-3xl" />
+            <div className="skeleton h-32 rounded-3xl" />
+          </div>
+        ) : (
+          <Reorder.Group axis="y" values={orderedMealNames} onReorder={handleReorderMeals} className="space-y-0">
             {orderedMealNames.map((meal, index) => (
-              <motion.div
+              <MealReorderItem
                 key={meal}
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{
-                  delay: index * 0.1,
-                  type: "spring",
-                  stiffness: 400,
-                  damping: 30
-                }}
-              >
-                <MealReorderItem
-                  meal={meal}
-                  index={index}
-                  orderedMealNames={orderedMealNames}
-                  logs={logs}
-                  selectedDate={date}
-                  handleDeleteLog={handleDeleteLog}
-                  handleEditLog={handleEditLog}
-                  handleToggleConsumed={handleToggleConsumed}
-                  handleToggleAllConsumed={handleToggleAllConsumed}
-                  handleMoveMeal={handleMoveMeal}
-                  handleRenameMeal={handleRenameMeal}
-                  handleRemoveMeal={handleRemoveMeal}
-                />
-              </motion.div>
+                meal={meal}
+                index={index}
+                orderedMealNames={orderedMealNames}
+                mealItems={mealItemsByName[meal] || []}
+                mealSummary={mealSummaryByName[meal] || { kcal: 0, p: 0, c: 0, g: 0 }}
+                selectedDate={date}
+                handleDeleteLog={handleDeleteLog}
+                handleEditLog={handleEditLog}
+                handleToggleConsumed={handleToggleConsumed}
+                handleToggleAllConsumed={handleToggleAllConsumed}
+                handleMoveMeal={handleMoveMeal}
+                handleRenameMeal={handleRenameMeal}
+                handleRemoveMeal={handleRemoveMeal}
+              />
             ))}
-          </AnimatePresence>
-        </Reorder.Group>
+          </Reorder.Group>
+        )}
 
         <button
           onClick={() => {
@@ -574,7 +587,7 @@ function DayContent({
           <span className="text-sm font-bold text-zinc-400 group-hover:text-fuchsia-300 transition-colors">Agregar otra comida</span>
         </button>
 
-        {logs.length === 0 && (
+        {!logsLoading && visibleLogs.length === 0 && (
           <button onClick={() => setIsCopyCalendarOpen(true)} disabled={copying} className="w-full mb-6 py-5 glass-card flex items-center justify-center gap-3 active:scale-[0.98] transition-all group">
             {copied ? (
               <span className="text-sm font-bold text-fuchsia-400">¡Dieta copiada!</span>
@@ -584,13 +597,15 @@ function DayContent({
           </button>
         )}
 
-        {logs.length > 0 && (
+        {!logsLoading && visibleLogs.length > 0 && (
           <button onClick={handleDeleteAllLogs} disabled={copying} className="w-full mb-6 py-4 glass-card-subtle flex items-center justify-center gap-3 active:scale-[0.98] transition-all group border-red-500/20 hover:border-red-500/40">
             <span className="text-sm font-bold text-red-400/80 group-hover:text-red-400 transition-colors">Borrar todo el día</span>
           </button>
         )}
 
-        <WaterTracker glasses={glasses} target={3.3} onAddGlass={addGlass} onRemoveGlass={removeGlass} />
+        <div className={cn("transition-opacity duration-200", waterLoading ? "opacity-60" : "opacity-100")}>
+          <WaterTracker glasses={glasses} target={3.3} onAddGlass={addGlass} onRemoveGlass={removeGlass} />
+        </div>
       </section>
 
       {userId && (
@@ -605,7 +620,7 @@ function DayContent({
             totalsConsumed={totalsConsumed}
             meals={orderedMealNames.map(meal => ({
               type: meal,
-              items: filterLogsByMeal(meal)
+              items: mealItemsByName[meal] || []
             })).filter(m => m.items.length > 0)}
           />
         </div>
@@ -639,6 +654,7 @@ function Dashboard() {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [shareTrigger, setShareTrigger] = useState(0);
   const dayContentControls = useAnimationControls();
+  const prefersReducedMotion = useReducedMotion();
   const previousDateRef = useRef<string | null>(null);
   const carouselRef = useRef<HTMLDivElement | null>(null);
   const carouselItemRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -647,6 +663,7 @@ function Dashboard() {
   const carouselDragIntentRef = useRef(false);
   const suppressCarouselTapRef = useRef(false);
   const carouselTapTimeoutRef = useRef<number | null>(null);
+  const daySwipeStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const dateParam = searchParams.get("date");
   const [selectedDate, setSelectedDate] = useState(dateParam || getTodayLocalDate());
@@ -687,18 +704,21 @@ function Dashboard() {
 
     if (previousDateRef.current === selectedDate) return;
 
-    const fromX = direction > 0 ? 36 : direction < 0 ? -36 : 0;
-    dayContentControls.set({ x: fromX, opacity: 0.92 });
+    if (prefersReducedMotion) {
+      dayContentControls.set({ x: 0, opacity: 1 });
+      previousDateRef.current = selectedDate;
+      return;
+    }
+
+    const fromX = direction > 0 ? 14 : direction < 0 ? -14 : 0;
+    dayContentControls.set({ x: fromX, opacity: 0.98 });
     dayContentControls.start({
       x: 0,
       opacity: 1,
-      transition: {
-        x: { type: "spring", stiffness: 280, damping: 32, mass: 0.8 },
-        opacity: { duration: 0.18 }
-      }
+      transition: { duration: 0.14, ease: "easeOut" }
     });
     previousDateRef.current = selectedDate;
-  }, [selectedDate, direction, dayContentControls]);
+  }, [selectedDate, direction, dayContentControls, prefersReducedMotion]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -735,7 +755,7 @@ function Dashboard() {
     const item = carouselItemRefs.current[selectedDate];
     if (!item) return;
     item.scrollIntoView({
-      behavior: previousDateRef.current === null ? "auto" : "smooth",
+      behavior: "auto",
       block: "nearest",
       inline: "center"
     });
@@ -815,11 +835,39 @@ function Dashboard() {
     carouselDragIntentRef.current = false;
   };
 
-  const handleDateChange = (newDate: string) => {
+  const handleDateChange = useCallback((newDate: string) => {
+    if (newDate === selectedDate) return;
     const oldTime = new Date(selectedDate + "T12:00:00").getTime();
     const newTime = new Date(newDate + "T12:00:00").getTime();
     setDirection(newTime > oldTime ? 1 : -1);
     setSelectedDate(newDate);
+  }, [selectedDate]);
+
+  const shiftDate = useCallback((delta: number) => {
+    const d = new Date(selectedDate + "T12:00:00");
+    d.setDate(d.getDate() + delta);
+    handleDateChange(formatDateAsLocalISO(d));
+  }, [selectedDate, handleDateChange]);
+
+  const handleDayPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== "touch") return;
+    daySwipeStartRef.current = { x: event.clientX, y: event.clientY };
+  };
+
+  const handleDayPointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== "touch") {
+      daySwipeStartRef.current = null;
+      return;
+    }
+
+    const start = daySwipeStartRef.current;
+    daySwipeStartRef.current = null;
+    if (!start) return;
+
+    const deltaX = event.clientX - start.x;
+    const deltaY = event.clientY - start.y;
+    if (Math.abs(deltaX) < 56 || Math.abs(deltaX) <= Math.abs(deltaY) * 1.2) return;
+    shiftDate(deltaX > 0 ? -1 : 1);
   };
 
   return (
@@ -890,23 +938,12 @@ function Dashboard() {
         <motion.div
           initial={false}
           animate={dayContentControls}
-          drag="x"
-          dragConstraints={{ left: 0, right: 0 }}
-          dragElastic={1}
-          dragDirectionLock
-          onDragEnd={(_, info) => {
-            const threshold = 50;
-            if (info.offset.x > threshold) {
-              const d = new Date(selectedDate + "T12:00:00");
-              d.setDate(d.getDate() - 1);
-              handleDateChange(formatDateAsLocalISO(d));
-            } else if (info.offset.x < -threshold) {
-              const d = new Date(selectedDate + "T12:00:00");
-              d.setDate(d.getDate() + 1);
-              handleDateChange(formatDateAsLocalISO(d));
-            }
+          onPointerDown={handleDayPointerDown}
+          onPointerUp={handleDayPointerEnd}
+          onPointerCancel={() => {
+            daySwipeStartRef.current = null;
           }}
-          className="w-full"
+          className="w-full touch-pan-y"
         >
           <DayContent
             userId={userId}
@@ -916,7 +953,6 @@ function Dashboard() {
             updateMealOrder={updateMealOrder}
             refetchProfile={refetchProfile}
             shareTrigger={shareTrigger}
-            onDateChange={handleDateChange}
           />
         </motion.div>
       </div>
@@ -926,7 +962,7 @@ function Dashboard() {
         isOpen={isCalendarOpen}
         onClose={() => setIsCalendarOpen(false)}
         selectedDate={selectedDate}
-        onDateSelect={setSelectedDate}
+        onDateSelect={handleDateChange}
       />
       <BottomNav />
     </main>
