@@ -12,15 +12,14 @@ const QUICK_SWAP_GROUPS = [
     {
         key: "carbohidratos",
         title: "Intercambio de carbohidratos",
-        subtitle: "Mantiene aprox. los carbohidratos totales del alimento actual.",
-        unit: "carb",
+        subtitle: "Mantiene aprox. las calorias totales del alimento actual.",
         minMacroPer100: 8,
         allowedStates: ["cocido", "n/a"],
         targets: [
-            { key: "arroz-cocido", label: "Arroz cocido", aliases: ["arroz cocido"] },
-            { key: "papa-cocida", label: "Papa cocida", aliases: ["papa cocida", "papas cocidas"] },
+            { key: "arroz-cocido", label: "Arroz cocido", aliases: ["arroz cocido", "arroz blanco", "arroz"] },
+            { key: "papa-cocida", label: "Papa cocida", aliases: ["papa cocida", "papas cocidas", "papa", "patata"] },
             { key: "pasta-cocida", label: "Pasta cocida", aliases: ["pasta cocida", "fideos cocidos", "tallarines cocidos"] },
-            { key: "camote-cocido", label: "Zapallo camote cocido", aliases: ["zapallo camote cocido", "camote cocido", "batata cocida"] },
+            { key: "camote-cocido", label: "Zapallo camote cocido", aliases: ["zapallo camote cocido", "zapallo camote", "camote cocido", "camote", "batata cocida", "batata / camote"] },
             { key: "quinoa-cocida", label: "Quinoa cocida", aliases: ["quinoa cocida"] },
             { key: "avena-cocida", label: "Avena cocida", aliases: ["avena cocida"] },
             { key: "cuscus-cocido", label: "Cous cous cocido", aliases: ["cous cous cocido", "cuscus cocido"] }
@@ -29,8 +28,7 @@ const QUICK_SWAP_GROUPS = [
     {
         key: "proteinas",
         title: "Intercambio de proteinas",
-        subtitle: "Mantiene aprox. la proteina total del alimento actual.",
-        unit: "prot",
+        subtitle: "Mantiene aprox. las calorias totales del alimento actual.",
         minMacroPer100: 8,
         allowedStates: ["cocido", "n/a"],
         targets: [
@@ -45,8 +43,7 @@ const QUICK_SWAP_GROUPS = [
     {
         key: "grasas",
         title: "Intercambio de grasas",
-        subtitle: "Mantiene aprox. la grasa total del alimento actual.",
-        unit: "grasa",
+        subtitle: "Mantiene aprox. las calorias totales del alimento actual.",
         minMacroPer100: 8,
         allowedStates: ["cocido", "n/a", "crudo"],
         targets: [
@@ -58,6 +55,21 @@ const QUICK_SWAP_GROUPS = [
         ]
     }
 ] as const;
+
+function scoreSwapCandidate(item: any, target: { aliases: readonly string[] }) {
+    const name = String(item.nombre || "").toLowerCase();
+    const state = String(item.estado || "n/a").toLowerCase();
+    let score = 0;
+
+    if (state === "cocido") score += 8;
+    if (state === "n/a") score += 3;
+    if (target.aliases.some((alias) => name === alias)) score += 10;
+    if (target.aliases.some((alias) => name.includes(alias))) score += 6;
+    if (name.includes("frita") || name.includes("fritas") || name.includes("chips")) score -= 12;
+    if (name.includes("great value") || name.includes("lider")) score -= 1;
+
+    return score;
+}
 
 export default function AddFood() {
     return (
@@ -235,9 +247,9 @@ function AddFoodContent() {
                 }
 
                 nextOptions[group.key] = group.targets.map((target) => {
-                    const match = data.find((item: any) =>
-                        target.aliases.some((alias) => item.nombre?.toLowerCase().includes(alias))
-                    );
+                    const match = data
+                        .filter((item: any) => target.aliases.some((alias) => item.nombre?.toLowerCase().includes(alias)))
+                        .sort((a: any, b: any) => scoreSwapCandidate(b, target) - scoreSwapCandidate(a, target))[0];
                     return match ? { ...match, targetLabel: target.label } : null;
                 }).filter(Boolean);
             }
@@ -357,22 +369,22 @@ function AddFoodContent() {
         if (data) setSelectedFood(normalizeRecipe(data));
     };
 
-    const getCurrentMacroTotal = (macroKey: "carbohidratos" | "proteinas" | "grasas") => {
+    const getCurrentCaloriesTotal = () => {
         if (!selectedFood) return 0;
         const effectiveGrams = getEffectiveGrams(gramos, unidad, selectedFood);
-        return (effectiveGrams * Number(selectedFood[macroKey] || 0)) / 100;
+        return (effectiveGrams * Number(selectedFood.kcal || 0)) / 100;
     };
 
     const handleQuickSwap = (macroKey: "carbohidratos" | "proteinas" | "grasas", targetFood: any) => {
         if (!selectedFood) return;
-        const currentMacro = getCurrentMacroTotal(macroKey);
-        const targetMacroPer100 = Number(targetFood[macroKey] || 0);
-        if (targetMacroPer100 <= 0) {
-            alert("Este alimento no tiene suficientes macros para calcular el cambio.");
+        const currentCalories = getCurrentCaloriesTotal();
+        const targetKcalPer100 = Number(targetFood.kcal || 0);
+        if (targetKcalPer100 <= 0) {
+            alert("Este alimento no tiene calorias suficientes para calcular el cambio.");
             return;
         }
 
-        const targetGrams = Math.max(1, Math.round((currentMacro * 100) / targetMacroPer100));
+        const targetGrams = Math.max(1, Math.round((currentCalories * 100) / targetKcalPer100));
         setSelectedFood({ ...targetFood, type: "food" });
         setUnidad("gramos");
         setGramos(targetGrams);
@@ -1038,12 +1050,12 @@ function AddFoodContent() {
                                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Conversion rapida</p>
                                     <h3 className="text-sm font-black text-white">{group.title}</h3>
                                     <p className="text-xs text-zinc-500 mt-1">
-                                        {group.subtitle} Total actual: {Math.round(getCurrentMacroTotal(group.key))}g.
+                                        {group.subtitle} Total actual: {Math.round(getCurrentCaloriesTotal())} kcal.
                                     </p>
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
                                     {options.map((option) => {
-                                        const targetGrams = Math.max(1, Math.round((getCurrentMacroTotal(group.key) * 100) / Number(option[group.key] || 1)));
+                                        const targetGrams = Math.max(1, Math.round((getCurrentCaloriesTotal() * 100) / Number(option.kcal || 1)));
                                         return (
                                             <button
                                                 key={`${group.key}-${option.id}`}
@@ -1053,7 +1065,7 @@ function AddFoodContent() {
                                                 <p className="text-xs font-black text-white leading-tight">{option.targetLabel || option.nombre}</p>
                                                 <p className="text-[11px] text-fuchsia-300 font-bold mt-2">{targetGrams}g</p>
                                                 <p className="text-[10px] text-zinc-500">
-                                                    {Math.round(Number(option[group.key] || 0))}g {group.unit} / 100g
+                                                    {Math.round(Number(option.kcal || 0))} kcal / 100g
                                                 </p>
                                             </button>
                                         );
