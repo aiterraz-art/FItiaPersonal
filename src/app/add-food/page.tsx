@@ -18,7 +18,7 @@ const QUICK_SWAP_GROUPS = [
         targets: [
             { key: "arroz-cocido", label: "Arroz cocido", aliases: ["arroz cocido", "arroz blanco", "arroz"] },
             { key: "papa-cocida", label: "Papa cocida", aliases: ["papa cocida", "papas cocidas", "papa", "patata"] },
-            { key: "pasta-cocida", label: "Pasta cocida", aliases: ["pasta cocida", "fideos cocidos", "tallarines cocidos"] },
+            { key: "pasta-cocida", label: "Pasta cocida", aliases: ["pasta cocida", "fideos cocidos", "tallarines cocidos"], overrideKcal: 160 },
             { key: "camote-cocido", label: "Zapallo camote cocido", aliases: ["zapallo camote cocido", "zapallo camote", "camote cocido", "camote", "batata cocida", "batata / camote"] },
             { key: "quinoa-cocida", label: "Quinoa cocida", aliases: ["quinoa cocida"] },
             { key: "avena-cocida", label: "Avena cocida", aliases: ["avena cocida"] },
@@ -250,7 +250,13 @@ function AddFoodContent() {
                     const match = data
                         .filter((item: any) => target.aliases.some((alias) => item.nombre?.toLowerCase().includes(alias)))
                         .sort((a: any, b: any) => scoreSwapCandidate(b, target) - scoreSwapCandidate(a, target))[0];
-                    return match ? { ...match, targetLabel: target.label } : null;
+                    return match
+                        ? {
+                            ...match,
+                            kcal: (target as any).overrideKcal ?? match.kcal,
+                            targetLabel: target.label
+                        }
+                        : null;
                 }).filter(Boolean);
             }
 
