@@ -538,10 +538,14 @@ function AddFoodContent() {
 
             const newOriginalCantidad = portionsCount;
             const newOriginalUnidad = unidad === 'gramos' ? 'gramos' : (selectedFood.porcion_nombre || 'porción');
+            const targetFoodId = selectedFood.type === 'recipe' ? null : selectedFood.id;
+            const targetRecipeId = selectedFood.type === 'recipe' ? selectedFood.id : null;
 
             // ─── EDIT MODE: update existing log ───────────────────────────────
             if (editMode && editingLogId) {
                 const { error } = await supabase.from('food_logs').update({
+                    food_id: targetFoodId,
+                    recipe_id: targetRecipeId,
                     gramos: newGramos,
                     original_cantidad: newOriginalCantidad,
                     original_unidad: newOriginalUnidad
@@ -555,9 +559,6 @@ function AddFoodContent() {
             }
 
             // ─── ADD MODE: insert new log ─────────────────────────────────────
-            let targetFoodId = selectedFood.type === 'recipe' ? null : selectedFood.id;
-            let targetRecipeId = selectedFood.type === 'recipe' ? selectedFood.id : null;
-
             let error: any = null;
             if (planMode) {
                 try {
