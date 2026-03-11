@@ -23,6 +23,7 @@ interface MealCardProps {
     onDelete?: (id: string) => void;
     onEdit?: (logId: string) => void;
     onDuplicate?: (id: string) => void;
+    onQuickSwap?: (id: string) => void;
     onCopyTomorrow?: (id: string) => void;
     onMoveToDate?: (id: string) => void;
     onToggleConsumed?: (id: string, currentStatus: boolean) => void;
@@ -39,6 +40,7 @@ function FoodLogItem({
     onDelete,
     onEdit,
     onDuplicate,
+    onQuickSwap,
     onCopyTomorrow,
     onMoveToDate,
     onToggleConsumed
@@ -47,6 +49,7 @@ function FoodLogItem({
     onDelete?: (id: string) => void;
     onEdit?: (logId: string) => void;
     onDuplicate?: (id: string) => void;
+    onQuickSwap?: (id: string) => void;
     onCopyTomorrow?: (id: string) => void;
     onMoveToDate?: (id: string) => void;
     onToggleConsumed?: (id: string, currentStatus: boolean) => void;
@@ -144,6 +147,11 @@ function FoodLogItem({
                                     Duplicar
                                 </button>
                             )}
+                            {onQuickSwap && (
+                                <button onClick={(e) => { e.stopPropagation(); onQuickSwap(item.id); }} className="px-1.5 py-1 rounded bg-fuchsia-500/10 text-[9px] font-black uppercase tracking-wider text-fuchsia-300">
+                                    Cambio
+                                </button>
+                            )}
                             {onCopyTomorrow && (
                                 <button onClick={(e) => { e.stopPropagation(); onCopyTomorrow(item.id); }} className="px-1.5 py-1 rounded bg-white/5 text-[9px] font-black uppercase tracking-wider text-zinc-400">
                                     Mañana
@@ -196,6 +204,7 @@ export function MealCard({
     onDelete,
     onEdit,
     onDuplicate,
+    onQuickSwap,
     onCopyTomorrow,
     onMoveToDate,
     onToggleConsumed,
@@ -305,6 +314,7 @@ export function MealCard({
                             onDelete={onDelete}
                             onEdit={onEdit}
                             onDuplicate={onDuplicate}
+                            onQuickSwap={onQuickSwap}
                             onCopyTomorrow={onCopyTomorrow}
                             onMoveToDate={onMoveToDate}
                             onToggleConsumed={onToggleConsumed}

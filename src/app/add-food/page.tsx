@@ -8,6 +8,57 @@ import { supabase } from "@/lib/supabase";
 import { motion, AnimatePresence } from "framer-motion";
 import { useFavorites, useTemplates, useWeeklyPlanActions } from "@/hooks/useSupabase";
 
+const QUICK_SWAP_GROUPS = [
+    {
+        key: "carbohidratos",
+        title: "Intercambio de carbohidratos",
+        subtitle: "Mantiene aprox. los carbohidratos totales del alimento actual.",
+        unit: "carb",
+        minMacroPer100: 8,
+        allowedStates: ["cocido", "n/a"],
+        targets: [
+            { key: "arroz-cocido", label: "Arroz cocido", aliases: ["arroz cocido"] },
+            { key: "papa-cocida", label: "Papa cocida", aliases: ["papa cocida", "papas cocidas"] },
+            { key: "pasta-cocida", label: "Pasta cocida", aliases: ["pasta cocida", "fideos cocidos", "tallarines cocidos"] },
+            { key: "camote-cocido", label: "Zapallo camote cocido", aliases: ["zapallo camote cocido", "camote cocido", "batata cocida"] },
+            { key: "quinoa-cocida", label: "Quinoa cocida", aliases: ["quinoa cocida"] },
+            { key: "avena-cocida", label: "Avena cocida", aliases: ["avena cocida"] },
+            { key: "cuscus-cocido", label: "Cous cous cocido", aliases: ["cous cous cocido", "cuscus cocido"] }
+        ]
+    },
+    {
+        key: "proteinas",
+        title: "Intercambio de proteinas",
+        subtitle: "Mantiene aprox. la proteina total del alimento actual.",
+        unit: "prot",
+        minMacroPer100: 8,
+        allowedStates: ["cocido", "n/a"],
+        targets: [
+            { key: "pollo-cocido", label: "Pollo cocido", aliases: ["pollo cocido", "pechuga de pollo cocida"] },
+            { key: "pavo-cocido", label: "Pavo cocido", aliases: ["pavo cocido", "pechuga de pavo cocida"] },
+            { key: "atun", label: "Atun al agua", aliases: ["atun al agua", "atún al agua"] },
+            { key: "carne-cocida", label: "Carne magra cocida", aliases: ["carne magra cocida", "vacuno cocido", "posta cocida"] },
+            { key: "huevo", label: "Huevo", aliases: ["huevo cocido", "huevo"] },
+            { key: "tofu", label: "Tofu", aliases: ["tofu"] }
+        ]
+    },
+    {
+        key: "grasas",
+        title: "Intercambio de grasas",
+        subtitle: "Mantiene aprox. la grasa total del alimento actual.",
+        unit: "grasa",
+        minMacroPer100: 8,
+        allowedStates: ["cocido", "n/a", "crudo"],
+        targets: [
+            { key: "palta", label: "Palta", aliases: ["palta", "aguacate"] },
+            { key: "aceite-oliva", label: "Aceite de oliva", aliases: ["aceite de oliva"] },
+            { key: "mani", label: "Mani", aliases: ["mani", "maní"] },
+            { key: "mantequilla-mani", label: "Mantequilla de mani", aliases: ["mantequilla de mani", "crema de mani"] },
+            { key: "nueces", label: "Nueces", aliases: ["nueces", "nuez"] }
+        ]
+    }
+] as const;
+
 export default function AddFood() {
     return (
         <Suspense fallback={
@@ -35,6 +86,7 @@ function AddFoodContent() {
     const [gramos, setGramos] = useState(100);
     const [unidad, setUnidad] = useState<'gramos' | 'porcion'>('gramos');
     const [loadingHistory, setLoadingHistory] = useState(false);
+    const [quickSwapOptions, setQuickSwapOptions] = useState<Record<string, any[]>>({});
     const [showCreateForm, setShowCreateForm] = useState(false);
     const [newFood, setNewFood] = useState({
         nombre: "",
@@ -51,6 +103,7 @@ function AddFoodContent() {
     const targetDate = searchParams.get("date") || getTodayLocalDate();
     const mealType = searchParams.get("meal") || "Almuerzo";
     const editingLogId = searchParams.get("logId") || null;
+    const swapMode = searchParams.get("swap") === "1";
     const editMode = Boolean(editingLogId);
     const planMode = searchParams.get("mode") === "plan";
     const { favorites, toggleFavorite } = useFavorites(userId || undefined);
@@ -149,6 +202,51 @@ function AddFoodContent() {
         fetchHistory();
         fetchSavedRecipes();
     }, [searchParams]);
+
+    useEffect(() => {
+        async function loadQuickSwapOptions() {
+            if (!selectedFood || selectedFood.type === "recipe") {
+                setQuickSwapOptions({});
+                return;
+            }
+
+            const nextOptions: Record<string, any[]> = {};
+
+            for (const group of QUICK_SWAP_GROUPS) {
+                const macroValue = Number(selectedFood[group.key] || 0);
+                const currentState = String(selectedFood.estado || "n/a").toLowerCase();
+                const shouldShowGroup =
+                    macroValue >= group.minMacroPer100 &&
+                    group.allowedStates.includes(currentState as any);
+
+                if (!shouldShowGroup) {
+                    continue;
+                }
+
+                const aliasTerms = group.targets.flatMap((target) => target.aliases);
+                const query = aliasTerms.map((term) => `nombre.ilike.%${term}%`).join(",");
+                const { data, error } = await supabase
+                    .from("food_items")
+                    .select("*")
+                    .or(query);
+
+                if (error || !data) {
+                    continue;
+                }
+
+                nextOptions[group.key] = group.targets.map((target) => {
+                    const match = data.find((item: any) =>
+                        target.aliases.some((alias) => item.nombre?.toLowerCase().includes(alias))
+                    );
+                    return match ? { ...match, targetLabel: target.label } : null;
+                }).filter(Boolean);
+            }
+
+            setQuickSwapOptions(nextOptions);
+        }
+
+        loadQuickSwapOptions();
+    }, [selectedFood]);
 
     const fetchSavedRecipes = async () => {
         const { data: { user } } = await supabase.auth.getUser();
@@ -257,6 +355,27 @@ function AddFoodContent() {
             .single();
 
         if (data) setSelectedFood(normalizeRecipe(data));
+    };
+
+    const getCurrentMacroTotal = (macroKey: "carbohidratos" | "proteinas" | "grasas") => {
+        if (!selectedFood) return 0;
+        const effectiveGrams = getEffectiveGrams(gramos, unidad, selectedFood);
+        return (effectiveGrams * Number(selectedFood[macroKey] || 0)) / 100;
+    };
+
+    const handleQuickSwap = (macroKey: "carbohidratos" | "proteinas" | "grasas", targetFood: any) => {
+        if (!selectedFood) return;
+        const currentMacro = getCurrentMacroTotal(macroKey);
+        const targetMacroPer100 = Number(targetFood[macroKey] || 0);
+        if (targetMacroPer100 <= 0) {
+            alert("Este alimento no tiene suficientes macros para calcular el cambio.");
+            return;
+        }
+
+        const targetGrams = Math.max(1, Math.round((currentMacro * 100) / targetMacroPer100));
+        setSelectedFood({ ...targetFood, type: "food" });
+        setUnidad("gramos");
+        setGramos(targetGrams);
     };
 
     const calculateTotal = (val: number, base: number) => Math.round((val * base) / 100);
@@ -902,6 +1021,47 @@ function AddFoodContent() {
                             </div>
                         ))}
                     </div>
+
+                    {selectedFood.type !== "recipe" && QUICK_SWAP_GROUPS.map((group) => {
+                        const options = (quickSwapOptions[group.key] || []).filter((option) => option.id !== selectedFood.id);
+                        if (options.length === 0) return null;
+
+                        return (
+                            <div
+                                key={group.key}
+                                className={cn(
+                                    "glass-card p-4 space-y-3",
+                                    swapMode && group.key === "carbohidratos" && "border-fuchsia-400/40 shadow-[0_0_0_1px_rgba(244,114,182,0.12)]"
+                                )}
+                            >
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Conversion rapida</p>
+                                    <h3 className="text-sm font-black text-white">{group.title}</h3>
+                                    <p className="text-xs text-zinc-500 mt-1">
+                                        {group.subtitle} Total actual: {Math.round(getCurrentMacroTotal(group.key))}g.
+                                    </p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {options.map((option) => {
+                                        const targetGrams = Math.max(1, Math.round((getCurrentMacroTotal(group.key) * 100) / Number(option[group.key] || 1)));
+                                        return (
+                                            <button
+                                                key={`${group.key}-${option.id}`}
+                                                onClick={() => handleQuickSwap(group.key, option)}
+                                                className="rounded-2xl border border-fuchsia-500/15 bg-white/5 p-3 text-left active:scale-[0.98] transition-all"
+                                            >
+                                                <p className="text-xs font-black text-white leading-tight">{option.targetLabel || option.nombre}</p>
+                                                <p className="text-[11px] text-fuchsia-300 font-bold mt-2">{targetGrams}g</p>
+                                                <p className="text-[10px] text-zinc-500">
+                                                    {Math.round(Number(option[group.key] || 0))}g {group.unit} / 100g
+                                                </p>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        );
+                    })}
 
                     <div className="space-y-4">
                         <div className="h-2 w-full bg-zinc-900/50 rounded-full overflow-hidden flex border border-white/5">

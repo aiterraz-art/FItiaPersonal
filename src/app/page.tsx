@@ -79,6 +79,7 @@ function MealReorderItem({
   selectedDate,
   handleDeleteLog,
   handleEditLog,
+  handleQuickSwapLog,
   handleDuplicateLog,
   handleCopyTomorrow,
   handleMoveToDate,
@@ -108,6 +109,7 @@ function MealReorderItem({
         items={mealItems}
         onDelete={handleDeleteLog}
         onEdit={handleEditLog}
+        onQuickSwap={handleQuickSwapLog}
         onDuplicate={handleDuplicateLog}
         onCopyTomorrow={handleCopyTomorrow}
         onMoveToDate={handleMoveToDate}
@@ -306,6 +308,11 @@ function DayContent({
   const handleEditLog = (id: string) => {
     rememberDashboardScroll();
     router.push(`/add-food?date=${date}&meal=${encodeURIComponent(logs.find(l => l.id === id)?.comida_tipo || '')}&logId=${id}`);
+  };
+
+  const handleQuickSwapLog = (id: string) => {
+    rememberDashboardScroll();
+    router.push(`/add-food?date=${date}&meal=${encodeURIComponent(logs.find(l => l.id === id)?.comida_tipo || '')}&logId=${id}&swap=1`);
   };
 
   const cloneLogToDate = async (id: string, targetDate: string, removeOriginal = false) => {
@@ -658,6 +665,7 @@ function DayContent({
                 selectedDate={date}
                 handleDeleteLog={handleDeleteLog}
                 handleEditLog={handleEditLog}
+                handleQuickSwapLog={handleQuickSwapLog}
                 handleDuplicateLog={handleDuplicateLog}
                 handleCopyTomorrow={handleCopyTomorrow}
                 handleMoveToDate={handleMoveToDate}
