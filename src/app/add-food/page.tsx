@@ -664,6 +664,23 @@ function AddFoodContent() {
         }
     };
 
+    const handleDeleteEditedLog = async () => {
+        if (!editMode || !editingLogId) {
+            setSelectedFood(null);
+            return;
+        }
+
+        if (!confirm("¿Seguro que querés eliminar este alimento?")) return;
+
+        const { error } = await supabase.from("food_logs").delete().eq("id", editingLogId);
+        if (error) {
+            alert(`Error al eliminar: ${error.message}`);
+            return;
+        }
+
+        router.push(planMode ? `/week?date=${targetDate}` : `/?date=${targetDate}`, { scroll: false });
+    };
+
     return (
         <main className="app-screen text-white p-6 font-sans">
             <div className="flex items-center justify-between mb-8">
@@ -1215,7 +1232,7 @@ function AddFoodContent() {
 
                         <div className="flex gap-3">
                             <button
-                                onClick={() => editMode ? router.push(planMode ? `/week?date=${targetDate}` : `/?date=${targetDate}`, { scroll: false }) : setSelectedFood(null)}
+                                onClick={handleDeleteEditedLog}
                                 className="w-16 h-16 bg-red-900/20 border border-red-500/20 rounded-full flex items-center justify-center group active:scale-90 transition-transform"
                             >
                                 <Trash2 className="w-6 h-6 text-red-500" />
